@@ -5,8 +5,8 @@ import string
 import stat
 import shutil
 
-proto_dir = 'src/examples/example_prototype/'
-target_dir = 'src/examples/'
+proto_dir = 'E:/Workspace/Octet/forked/octet/octet/src/examples/example_prototype/'
+target_dir = 'E:/Workspace/Octet/forked/octet/octet/src/examples/'
 
 def make_example(src_dir, dest_dir, projname, depth):
   print(depth,"make", src_dir, dest_dir)

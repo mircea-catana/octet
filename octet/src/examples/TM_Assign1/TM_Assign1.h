@@ -112,14 +112,10 @@ namespace octet {
 		btTransform boxTransform;
 		boxRigidBody->getMotionState()->getWorldTransform(boxTransform);
 
-		float dx = box_node->get_position().x() - (float)boxTransform.getOrigin().getX();
-		float dy = box_node->get_position().y() - (float)boxTransform.getOrigin().getY();
-		float dz = box_node->get_position().z() - (float)boxTransform.getOrigin().getZ();
+		float dx = (float)boxTransform.getOrigin().getX() - box_node->get_position().x();
+		float dy = (float)boxTransform.getOrigin().getY() - box_node->get_position().y();
+		float dz = (float)boxTransform.getOrigin().getZ() - box_node->get_position().z();
 		box_node->translate(vec3(dx, dy, dz));
-
-		//check. TODO: remove this
-		float yPos = boxTransform.getOrigin().getY();
-		printf("Box Y Pos: %f Mesh Y Pos: %f\n", yPos, box_node->get_position().y());
 	}
 
 	~TM_Assign1() {

@@ -30,6 +30,9 @@ namespace octet {
 	mouse_look mouse_look_helper;
 	ref<camera_instance> main_camera;
 
+	//scene nodes
+	scene_node *box_node;
+
   public:
     /// this is called when we construct the class before everything is initialised.
     TM_Assign1(int argc, char **argv) : app(argc, argv) {
@@ -74,9 +77,10 @@ namespace octet {
 
       material *red = new material(vec4(1, 0, 0, 1));
       mesh_box *box = new mesh_box(vec3(1));
-      scene_node *node = new scene_node();
-      app_scene->add_child(node);
-      app_scene->add_mesh_instance(new mesh_instance(node, box, red));
+      box_node = new scene_node();
+	  box_node->translate(vec3(0, 50, 0));
+      app_scene->add_child(box_node);
+      app_scene->add_mesh_instance(new mesh_instance(box_node, box, red));
     }
 
     /// this is called to draw the world
@@ -105,11 +109,17 @@ namespace octet {
 		//compute physics. assume 30 fps.
 		dynamicsWorld->stepSimulation(fps, 10);
 
-		//TODO: remove this and move box according to transform
 		btTransform boxTransform;
 		boxRigidBody->getMotionState()->getWorldTransform(boxTransform);
+
+		float dx = box_node->get_position().x() - (float)boxTransform.getOrigin().getX();
+		float dy = box_node->get_position().y() - (float)boxTransform.getOrigin().getY();
+		float dz = box_node->get_position().z() - (float)boxTransform.getOrigin().getZ();
+		box_node->translate(vec3(dx, dy, dz));
+
+		//check. TODO: remove this
 		float yPos = boxTransform.getOrigin().getY();
-		printf("Box Y Pos: %f\n", yPos);
+		printf("Box Y Pos: %f Mesh Y Pos: %f\n", yPos, box_node->get_position().y());
 	}
 
 	~TM_Assign1() {

@@ -7,7 +7,6 @@
 
 #include <btBulletDynamicsCommon.h>
 #include <btBulletCollisionCommon.h>
-#include <iostream>
 
 namespace octet {
   /// Scene containing a box with octet.
@@ -27,6 +26,10 @@ namespace octet {
 	btRigidBody *boxRigidBody;
 	btRigidBody *groundRigidBody;
 
+	//camera members
+	mouse_look mouse_look_helper;
+	ref<camera_instance> main_camera;
+
   public:
     /// this is called when we construct the class before everything is initialised.
     TM_Assign1(int argc, char **argv) : app(argc, argv) {
@@ -41,6 +44,7 @@ namespace octet {
 		btVector3 gravity = btVector3(0, -9.8f, 0);
 		dynamicsWorld->setGravity(gravity);
 
+		//TODO: move shapes and rigidbodies in the object's specific class
 		//define collision shapes for objects
 		pGroundShape = new btStaticPlaneShape(btVector3(0, 1, 0), 1);
 		pBoxShape = new btBoxShape(btVector3(1, 1, 1));
@@ -65,6 +69,9 @@ namespace octet {
       app_scene =  new visual_scene();
       app_scene->create_default_camera_and_lights();
 
+	  mouse_look_helper.init(this, 200.0f / 360, false);
+	  main_camera = app_scene->get_camera_instance(0);
+
       material *red = new material(vec4(1, 0, 0, 1));
       mesh_box *box = new mesh_box(vec3(1));
       scene_node *node = new scene_node();
@@ -75,15 +82,12 @@ namespace octet {
     /// this is called to draw the world
     void draw_world(int x, int y, int w, int h) {
 
-		//compute physics. assume 30 fps.
-		dynamicsWorld->stepSimulation(1.0f / 30, 10);
+		compute_physics_step(1.0f / 30);
 
-		//TODO: remove this and move box according to transform
-		btTransform boxTransform;
-		boxRigidBody->getMotionState()->getWorldTransform(boxTransform);
-		float yPos = boxTransform.getOrigin().getY();
-		printf("Box Y Pos: %f\n", yPos);
-
+		//update camera
+		scene_node *camera_node = main_camera->get_node();
+		mat4t &camera_to_world = camera_node->access_nodeToParent();
+		mouse_look_helper.update(camera_to_world);
 
       int vx = 0, vy = 0;
       get_viewport_size(vx, vy);
@@ -95,6 +99,18 @@ namespace octet {
       // draw the scene
       app_scene->render((float)vx / vy);
     }
+
+	//per frame physics computation
+	void compute_physics_step(float fps) {
+		//compute physics. assume 30 fps.
+		dynamicsWorld->stepSimulation(fps, 10);
+
+		//TODO: remove this and move box according to transform
+		btTransform boxTransform;
+		boxRigidBody->getMotionState()->getWorldTransform(boxTransform);
+		float yPos = boxTransform.getOrigin().getY();
+		printf("Box Y Pos: %f\n", yPos);
+	}
 
 	~TM_Assign1() {
 		//physics cleanup

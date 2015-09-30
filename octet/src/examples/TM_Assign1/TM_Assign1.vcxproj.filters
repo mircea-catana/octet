@@ -428,6 +428,7 @@
       <Filter>containers</Filter>
     </ClInclude>
     <ClInclude Include="TM_Assign1.h" />
+    <ClInclude Include="plank.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\resources\mesh_builder.inl">
@@ -436,5 +437,10 @@
     <None Include="..\..\resources\resources.inl">
       <Filter>resources</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="TM_Assign1.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
   </ItemGroup>
 </Project>

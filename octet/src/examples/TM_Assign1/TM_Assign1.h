@@ -5,6 +5,8 @@
 // Modular Framework for OpenGLES2 rendering on multiple platforms.
 //
 
+#include "plank.h"
+
 namespace octet {
   /// Scene containing a box with octet.
  class TM_Assign1 : public app {
@@ -33,8 +35,11 @@ namespace octet {
 			return mesh::vertex(p, vec3(0, 1, 0), uv);
 		}
 	};
-
 	terrain_mesh_source terrain_source;
+
+	//scene objects
+	dynarray<scene_node*> nodes;
+	dynarray<btRigidBody*> rigidbodies;
 
   public:
     /// this is called when we construct the class before everything is initialised.
@@ -69,37 +74,50 @@ namespace octet {
 		mat4t mat;
 		mat.loadIdentity();
 
-		app_scene->add_shape(
+		mesh_instance *mi = app_scene->add_shape(
 			mat,
 			new mesh_terrain(vec3(100.0f, 0.5f, 100.0f), ivec3(100, 1, 100), terrain_source),
 			new material(new image("assets/grass.jpg")),
 			false, 0
 			);
+		btRigidBody *rb = mi->get_node()->get_rigid_body();
+		dynamics_world->addRigidBody(rb);
+		rigidbodies.push_back(rb);
+		nodes.push_back(mi->get_node());
 
-		float player_height = 1.83f;
+		float player_height = 1.8f;
 		float player_radius = 0.25f;
 		float player_mass = 90.0f;
 
 		mat.loadIdentity();
-		mat.translate(0, player_height*6.0f, 50);
+		mat.translate(0.0f, player_height*6.0f, 50.0f);
 
-		mesh_instance *mi = app_scene->add_shape(
+		mesh_instance *mi2 = app_scene->add_shape(
 			mat,
 			new mesh_sphere(vec3(0), player_radius),
 			new material(vec4(1, 0, 0, 1)),
 			true, player_mass,
 			new btCapsuleShape(0.25f, player_height)
 			);
-		player_node = mi->get_node();
+		player_node = mi2->get_node();
 
-		mat.loadIdentity();
-		mat.translate(0, 0.5f, 0);
-		app_scene->add_shape(mat, new mesh_box(vec3(1, 1, 1)), new material(vec4(1, 0, 0, 1)), false);
-
-		mat.loadIdentity();
-		mat.translate(1.5, 1.25, 0);
-		app_scene->add_shape(mat, new mesh_box(vec3(.5f, .25f, 1)), new material(vec4(0, 1, 0, 1)), true);
+		add_plank(vec3(1.5f, 2.0f, 0.0f), vec3(.5f, .25f, 1.0f), new material(vec4(0, 1, 0, 1)), 1.0f);
     }
+
+	void add_plank(vec3 position, vec3 size, material *mat, btScalar mass) {
+		plank p;
+		mat4t mtw;
+
+		mtw.loadIdentity();
+		mtw.translate(position);
+		p.init(mtw, size, mat, mass);
+
+		dynamics_world->addRigidBody(p.get_rigidbody());
+		rigidbodies.push_back(p.get_rigidbody());
+		nodes.push_back(p.get_scene_node());
+		app_scene->add_mesh_instance(new mesh_instance(p.get_scene_node(), p.get_mesh(), p.get_material()));
+		app_scene->add_child(p.get_scene_node());
+	}
 
     /// this is called to draw the world
     void draw_world(int x, int y, int w, int h) {
@@ -116,7 +134,21 @@ namespace octet {
 		fps_helper.update(player_node, camera_node);
 
 		// update matrices. assume 30 fps.
-		app_scene->update(1.0f/30);
+		app_scene->update(1.0f / 30);
+
+		// physics step
+		dynamics_world->stepSimulation(1.0f / 30);
+
+		// update mesh positions to physics
+		for (int i = 0; i != rigidbodies.size(); ++i) {
+			btRigidBody *rigidbody = rigidbodies[i];
+			btQuaternion btq = rigidbody->getOrientation();
+			btVector3 pos = rigidbody->getCenterOfMassPosition();
+			quat q(btq[0], btq[1], btq[2], btq[3]);
+			mat4t mtw = q;
+			mtw[3] = vec4(pos[0], pos[1], pos[2], 1);
+			nodes[i]->access_nodeToParent() = mtw;
+		}
 
 		// draw the scene
 		app_scene->render((float)vx / vy);

@@ -25,18 +25,29 @@ namespace octet {
 		bool enabled;
 
 	public:
+
+		enum sprite_type {
+			character_sprite,
+			enemy_sprite,
+			wall_sprite,
+			pickup_sprite,
+			missile_sprite,
+			other_sprite
+		} type;
+
 		sprite() {
 			texture = 0;
 			enabled = true;
 		}
 
-		void init(int _texture, float x, float y, float w, float h) {
+		void init(int _texture, float x, float y, float w, float h, sprite_type t = other_sprite) {
 			modelToWorld.loadIdentity();
 			modelToWorld.translate(x, y, 0);
 			halfWidth = w * 0.5f;
 			halfHeight = h * 0.5f;
 			texture = _texture;
 			enabled = true;
+			type = t;
 		}
 
 		void render(texture_shader &shader, mat4t &cameraToWorld) {
@@ -112,8 +123,8 @@ namespace octet {
 			if (finalAngle < 1 && finalAngle > -1)
 				return;
 
-			modelToWorld.rotateZ(finalAngle);
-			spriteRotation = angle;
+			modelToWorld.rotateZ(finalAngle-90);
+			spriteRotation = angle-90;
 		}
 
 		// position the object relative to another.
@@ -150,6 +161,10 @@ namespace octet {
 
 		vec2 get_position() {
 			return vec2(modelToWorld[3][0], modelToWorld[3][1]);
+		}
+
+		sprite_type get_type() {
+			return type;
 		}
 	};
 
@@ -217,29 +232,34 @@ namespace octet {
 		  sprites[ship_sprite].look_at(mouseWorldPos.x(), mouseWorldPos.y());
 		  
 		  const float ship_speed = 0.05f;
-		  // left and right arrows
-		  if (is_key_down(key_left)) {
+
+		  if (is_key_down(key_a)) {
 			  sprites[ship_sprite].translate(-ship_speed, 0);
-			  if (sprites[ship_sprite].collides_with(sprites[first_border_sprite + 2])) {
-				  sprites[ship_sprite].translate(ship_speed, 0);
-			  }
-		  } else if (is_key_down(key_right)) {
+		  } else if (is_key_down(key_d)) {
 			  sprites[ship_sprite].translate(ship_speed, 0);
-			  if (sprites[ship_sprite].collides_with(sprites[first_border_sprite + 3])) {
-				  sprites[ship_sprite].translate(-ship_speed, 0);
-			  }
-		  } else if (is_key_down(key_up)) {
+		  } else if (is_key_down(key_w)) {
 			  sprites[ship_sprite].translate(0, ship_speed);
-			  if (sprites[ship_sprite].collides_with(sprites[first_border_sprite + 1])) {
-				  sprites[ship_sprite].translate(0, -ship_speed);
-			  }
-		  } else if (is_key_down(key_down)) {
+		  } else if (is_key_down(key_s)) {
 			  sprites[ship_sprite].translate(0, -ship_speed);
-			  if (sprites[ship_sprite].collides_with(sprites[first_border_sprite])) {
-				  sprites[ship_sprite].translate(0, ship_speed);
+		  }
+
+		  for (unsigned i = 0; i < num_sprites; ++i) {
+			  if (sprites[i].get_type() == sprite::sprite_type::wall_sprite) {
+				  if (sprites[ship_sprite].collides_with(sprites[i])) {
+					  if (is_key_down(key_a)) {
+						  sprites[ship_sprite].translate(ship_speed, 0);
+					  } else if (is_key_down(key_d)) {
+						  sprites[ship_sprite].translate(-ship_speed, 0);
+					  } else if (is_key_down(key_w)) {
+						  sprites[ship_sprite].translate(0, -ship_speed);
+					  } else if (is_key_down(key_s)) {
+						  sprites[ship_sprite].translate(0, ship_speed);
+					  }
+				  }
 			  }
 		  }
 
+		  // move camera with player
 		  float dx = sprites[ship_sprite].get_position()[0] - cameraToWorld[3][0];
 		  float dy = sprites[ship_sprite].get_position()[1] - cameraToWorld[3][1];
 		  cameraToWorld.translate(vec3(dx, dy, 0));
@@ -249,7 +269,7 @@ namespace octet {
 	  void fire_missiles() {
 		  if (missiles_disabled) {
 			  --missiles_disabled;
-		  } else if (is_key_going_down(' ')) {
+		  } else if (is_key_going_down(' ') || is_key_going_down(key_lmb)) {
 			  // find a missile
 			  for (int i = 0; i != num_missiles; ++i) {
 				  if (!sprites[first_missile_sprite + i].is_enabled()) {
@@ -330,24 +350,24 @@ namespace octet {
 
 		  font_texture = resource_dict::get_texture_handle(GL_RGBA, "assets/big_0.gif");
 
-		  GLuint ship = resource_dict::get_texture_handle(GL_RGBA, "assets/shooter/character.jpg");
-		  sprites[ship_sprite].init(ship, 0, 0, 0.25f, 0.25f);
+		  GLuint ship = resource_dict::get_texture_handle(GL_RGBA, "assets/shooter/character.gif");
+		  sprites[ship_sprite].init(ship, 0, 0, 0.25f, 0.25f, sprite::sprite_type::character_sprite);
 
 		  GLuint GameOver = resource_dict::get_texture_handle(GL_RGBA, "assets/invaderers/GameOver.gif");
-		  sprites[game_over_sprite].init(GameOver, 20, 0, 3, 1.5f);
+		  sprites[game_over_sprite].init(GameOver, 20, 0, 3, 1.5f, sprite::sprite_type::other_sprite);
 
 		  // set the border to white for clarity
 		  GLuint white = resource_dict::get_texture_handle(GL_RGB, "#ffffff");
-		  sprites[first_border_sprite + 0].init(white, 0, -3, 6, 0.2f);
-		  sprites[first_border_sprite + 1].init(white, 0, 3, 6, 0.2f);
-		  sprites[first_border_sprite + 2].init(white, -3, 0, 0.2f, 6);
-		  sprites[first_border_sprite + 3].init(white, 3, 0, 0.2f, 6);
+		  sprites[first_border_sprite + 0].init(white, 0, -3, 6, 0.2f, sprite::sprite_type::wall_sprite);
+		  sprites[first_border_sprite + 1].init(white, 0, 3, 6, 0.2f, sprite::sprite_type::wall_sprite);
+		  sprites[first_border_sprite + 2].init(white, -3, 0, 0.2f, 6, sprite::sprite_type::wall_sprite);
+		  sprites[first_border_sprite + 3].init(white, 3, 0, 0.2f, 6, sprite::sprite_type::wall_sprite);
 
 		  // use the missile texture
 		  GLuint missile = resource_dict::get_texture_handle(GL_RGBA, "assets/invaderers/missile.gif");
 		  for (int i = 0; i != num_missiles; ++i) {
 			  // create missiles off-screen
-			  sprites[first_missile_sprite + i].init(missile, 20, 0, 0.0625f, 0.25f);
+			  sprites[first_missile_sprite + i].init(missile, 20, 0, 0.0625f, 0.25f, sprite::sprite_type::missile_sprite);
 			  sprites[first_missile_sprite + i].is_enabled() = false;
 		  }
 

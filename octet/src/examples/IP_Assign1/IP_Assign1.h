@@ -4,6 +4,9 @@
 //
 // Modular Framework for OpenGLES2 rendering on multiple platforms.
 //
+
+#include "level_generator.h"
+
 namespace octet {
 
 	class sprite {
@@ -182,7 +185,6 @@ namespace octet {
 		  num_rows = 5,
 		  num_cols = 10,
 		  num_missiles = 2,
-		  num_borders = 4,
 
 		  // sprite definitions
 		  ship_sprite = 0,
@@ -190,9 +192,6 @@ namespace octet {
 
 		  first_missile_sprite,
 		  last_missile_sprite = first_missile_sprite + num_missiles - 1,
-
-		  first_border_sprite,
-		  last_border_sprite = first_border_sprite + num_borders - 1,
 
 		  num_sprites,
 	  };
@@ -209,6 +208,7 @@ namespace octet {
 
 	  // big array of sprites
 	  sprite sprites[num_sprites];
+	  dynarray<sprite> walls;
 
 	  // random number generator
 	  class random randomizer;
@@ -218,6 +218,9 @@ namespace octet {
 
 	  // information for our text
 	  bitmap_font font;
+
+	  const int map_width = 20;
+	  const int map_height = 20;
 
 	  // called when we are hit
 	  void on_hit_ship() {
@@ -243,18 +246,16 @@ namespace octet {
 			  sprites[ship_sprite].translate(0, -ship_speed);
 		  }
 
-		  for (unsigned i = 0; i < num_sprites; ++i) {
-			  if (sprites[i].get_type() == sprite::sprite_type::wall_sprite) {
-				  if (sprites[ship_sprite].collides_with(sprites[i])) {
-					  if (is_key_down(key_a)) {
-						  sprites[ship_sprite].translate(ship_speed, 0);
-					  } else if (is_key_down(key_d)) {
-						  sprites[ship_sprite].translate(-ship_speed, 0);
+		  for (unsigned i = 0; i < walls.size(); ++i) {
+			  if (sprites[ship_sprite].collides_with(walls[i])) {
+				  if (is_key_down(key_a)) {
+					  sprites[ship_sprite].translate(ship_speed, 0);
+				  } else if (is_key_down(key_d)) {
+					  sprites[ship_sprite].translate(-ship_speed, 0);
 					  } else if (is_key_down(key_w)) {
-						  sprites[ship_sprite].translate(0, -ship_speed);
-					  } else if (is_key_down(key_s)) {
-						  sprites[ship_sprite].translate(0, ship_speed);
-					  }
+					  sprites[ship_sprite].translate(0, -ship_speed);
+				  } else if (is_key_down(key_s)) {
+					  sprites[ship_sprite].translate(0, ship_speed);
 				  }
 			  }
 		  }
@@ -289,9 +290,18 @@ namespace octet {
 			  sprite &missile = sprites[first_missile_sprite + i];
 			  if (missile.is_enabled()) {
 				  missile.translate(0, missile_speed);
-				  if (missile.collides_with(sprites[first_border_sprite + 1])) {
-					  missile.is_enabled() = false;
-					  missile.translate(20, 0);
+				  for (unsigned j = 0; j < num_sprites; ++j) {
+					  if (missile.collides_with(sprites[j])) {
+						  if (sprites[j].get_type() == sprite::sprite_type::enemy_sprite) {
+							  // TODO: implement missile damage
+						  }
+					  }
+				  }
+				  for (unsigned j = 0; j < walls.size(); ++j) {
+					  if (missile.collides_with(walls[j])) {
+						  missile.is_enabled() = false;
+						  missile.translate(20, 0);
+					  }
 				  }
 			  }
 		  next_missile:;
@@ -348,20 +358,38 @@ namespace octet {
 		  cameraToWorld.loadIdentity();
 		  cameraToWorld.translate(0, 0, 3);
 
+		  // generate random cave
+		  GLuint white = resource_dict::get_texture_handle(GL_RGB, "#ffffff");
+		  level_generator *generator = new level_generator();
+		  int startX = 0;
+		  int startY = 0;
+		  bool found = false;
+		  int **map = generator->generate_level(map_width, map_height);
+		  for (unsigned i = 0; i < map_height; ++i) {
+			  for (unsigned j = 0; j < map_width; ++j) {
+				  if (map[i][j] == 1) {
+					  sprite s;
+					  s.init(white, j, map_height - i, 1, 1, sprite::sprite_type::wall_sprite);
+					  walls.push_back(s);
+				  }
+				  if (!found) {
+					  if (map[i][j] == 0) {
+						  startX = j;
+						  startY = map_height - i;
+						  found = true;
+					  }
+				  }
+			  }
+		  }
+		  delete generator;
+
 		  font_texture = resource_dict::get_texture_handle(GL_RGBA, "assets/big_0.gif");
 
 		  GLuint ship = resource_dict::get_texture_handle(GL_RGBA, "assets/shooter/character.gif");
-		  sprites[ship_sprite].init(ship, 0, 0, 0.25f, 0.25f, sprite::sprite_type::character_sprite);
+		  sprites[ship_sprite].init(ship, startX, startY, 0.25f, 0.25f, sprite::sprite_type::character_sprite);
 
 		  GLuint GameOver = resource_dict::get_texture_handle(GL_RGBA, "assets/invaderers/GameOver.gif");
 		  sprites[game_over_sprite].init(GameOver, 20, 0, 3, 1.5f, sprite::sprite_type::other_sprite);
-
-		  // set the border to white for clarity
-		  GLuint white = resource_dict::get_texture_handle(GL_RGB, "#ffffff");
-		  sprites[first_border_sprite + 0].init(white, 0, -3, 6, 0.2f, sprite::sprite_type::wall_sprite);
-		  sprites[first_border_sprite + 1].init(white, 0, 3, 6, 0.2f, sprite::sprite_type::wall_sprite);
-		  sprites[first_border_sprite + 2].init(white, -3, 0, 0.2f, 6, sprite::sprite_type::wall_sprite);
-		  sprites[first_border_sprite + 3].init(white, 3, 0, 0.2f, 6, sprite::sprite_type::wall_sprite);
 
 		  // use the missile texture
 		  GLuint missile = resource_dict::get_texture_handle(GL_RGBA, "assets/invaderers/missile.gif");
@@ -398,7 +426,7 @@ namespace octet {
 		  get_mouse_pos(mouseX, mouseY);
 		  float dx = -w / 2 + mouseX;
 		  float dy = -h / 2 + mouseY;
-		  mouseWorldPos = vec3(dx / ((float)w/6.0f), dy / ((float)h/6.0f) , 0);
+		  mouseWorldPos = vec3(dx / ((float)w / 6.0f), dy / ((float)h / 6.0f), 0);
 	  }
 
 	  // this is called to draw the world
@@ -424,6 +452,11 @@ namespace octet {
 		  // draw all the sprites
 		  for (int i = 0; i != num_sprites; ++i) {
 			  sprites[i].render(texture_shader_, cameraToWorld);
+		  }
+
+		  // draw walls
+		  for (unsigned i = 0; i != walls.size(); ++i) {
+			  walls[i].render(texture_shader_, cameraToWorld);
 		  }
 
 		  char score_text[32];

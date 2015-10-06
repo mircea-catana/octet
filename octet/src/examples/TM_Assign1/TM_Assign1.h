@@ -11,6 +11,9 @@ namespace octet {
   /// Scene containing a box with octet.
  class TM_Assign1 : public app {
    private:
+	//constants
+	const float PI = 3.14159;
+
 	btDefaultCollisionConfiguration *configuration;
 	btCollisionDispatcher *dispatcher;
 	btDbvtBroadphase *broadphase;
@@ -101,10 +104,48 @@ namespace octet {
 			);
 		player_node = mi2->get_node();
 
-		add_plank(vec3(1.5f, 2.0f, 0.0f), vec3(.5f, .25f, 1.0f), new material(vec4(0, 1, 0, 1)), 1.0f);
+		create_bridge();
     }
 
-	void add_plank(vec3 position, vec3 size, material *mat, btScalar mass) {
+	void create_bridge() {
+		plank pred = add_plank(vec3(0), vec3(1), new material(vec4(1, 0, 0, 1)), 0.0f);
+		plank pgreen = add_plank(vec3(1.5f, 2.0f, 0.0f), vec3(.5f, .25f, 1.0f), new material(vec4(0, 1, 0, 1)), 1.0f);
+		btHingeConstraint *constraint = new btHingeConstraint((*pred.get_rigidbody()), (*pgreen.get_rigidbody()),
+			btVector3(1.0f, 1.0f, 0.0f), btVector3(-0.5f, 0.25f, 0.0f),
+			btVector3(0, 0, 1), btVector3(0, 0, 1), false);
+		constraint->setLimit(-PI * 0.1f, PI * 0.1f);
+		dynamics_world->addConstraint(constraint);
+
+		plank pgreen2 = add_plank(vec3(2.0f, 2.0f, 0.0f), vec3(.5f, .25f, 1.0f), new material(vec4(0, 1, 0, 1)), 1.0f);
+		btHingeConstraint *constraint2 = new btHingeConstraint((*pgreen.get_rigidbody()), (*pgreen2.get_rigidbody()),
+			btVector3(0.5f, 0.25f, 0.0f), btVector3(-0.5f, 0.25f, 0.0f),
+			btVector3(0, 0, 1), btVector3(0, 0, 1), false);
+		constraint2->setLimit(-PI * 0.1f, PI * 0.1f);
+		dynamics_world->addConstraint(constraint2);
+
+		plank pgreen3 = add_plank(vec3(2.0f, 2.0f, 0.0f), vec3(.5f, .25f, 1.0f), new material(vec4(0, 1, 0, 1)), 1.0f);
+		btHingeConstraint *constraint3 = new btHingeConstraint((*pgreen2.get_rigidbody()), (*pgreen3.get_rigidbody()),
+			btVector3(0.5f, 0.25f, 0.0f), btVector3(-0.5f, 0.25f, 0.0f),
+			btVector3(0, 0, 1), btVector3(0, 0, 1), false);
+		constraint3->setLimit(-PI * 0.1f, PI * 0.1f);
+		dynamics_world->addConstraint(constraint3);
+
+		plank pgreen4 = add_plank(vec3(2.0f, 2.0f, 0.0f), vec3(.5f, .25f, 1.0f), new material(vec4(0, 1, 0, 1)), 1.0f);
+		btHingeConstraint *constraint4 = new btHingeConstraint((*pgreen3.get_rigidbody()), (*pgreen4.get_rigidbody()),
+			btVector3(0.5f, 0.25f, 0.0f), btVector3(-0.5f, 0.25f, 0.0f),
+			btVector3(0, 0, 1), btVector3(0, 0, 1), false);
+		constraint4->setLimit(-PI * 0.1f, PI * 0.1f);
+		dynamics_world->addConstraint(constraint4);
+
+		plank pred2 = add_plank(vec3(6, 0, 0), vec3(1), new material(vec4(1, 0, 0, 1)), 0.0f);
+		btHingeConstraint *constraint5 = new btHingeConstraint((*pgreen4.get_rigidbody()), (*pred2.get_rigidbody()),
+			btVector3(0.5f, 0.25f, 0.0f), btVector3(-1.0f, 1.0f, 0.0f),
+			btVector3(0, 0, 1), btVector3(0, 0, 1), false);
+		constraint5->setLimit(-PI * 0.1f, PI * 0.1f);
+		dynamics_world->addConstraint(constraint5);
+	}
+
+	plank add_plank(vec3 position, vec3 size, material *mat, btScalar mass) {
 		plank p;
 		mat4t mtw;
 
@@ -117,6 +158,7 @@ namespace octet {
 		nodes.push_back(p.get_scene_node());
 		app_scene->add_mesh_instance(new mesh_instance(p.get_scene_node(), p.get_mesh(), p.get_material()));
 		app_scene->add_child(p.get_scene_node());
+		return p;
 	}
 
     /// this is called to draw the world

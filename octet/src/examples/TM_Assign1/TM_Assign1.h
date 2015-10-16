@@ -14,10 +14,6 @@ namespace octet {
 	//constants
 	const float PI = 3.14159;
 
-	btDefaultCollisionConfiguration *configuration;
-	btCollisionDispatcher *dispatcher;
-	btDbvtBroadphase *broadphase;
-	btSequentialImpulseConstraintSolver *solver;
 	btDiscreteDynamicsWorld *dynamics_world;
 
     // scene for drawing box
@@ -47,25 +43,13 @@ namespace octet {
   public:
     /// this is called when we construct the class before everything is initialised.
     TM_Assign1(int argc, char **argv) : app(argc, argv) {
-		configuration = new btDefaultCollisionConfiguration();
-		dispatcher = new btCollisionDispatcher(configuration);
-		broadphase = new btDbvtBroadphase();
-		solver = new btSequentialImpulseConstraintSolver();
-		dynamics_world = new btDiscreteDynamicsWorld(dispatcher, broadphase, solver, configuration);
     }
-
-	~TM_Assign1() {
-		delete dynamics_world;
-		delete solver;
-		delete broadphase;
-		delete dispatcher;
-		delete configuration;
-	}
 
     /// this is called once OpenGL is initialized
     void app_init() {
 		app_scene =  new visual_scene();
 		app_scene->create_default_camera_and_lights();
+		dynamics_world = app_scene->get_bt_world();
 
 		mouse_look_helper.init(this, 200.0f / 360, false);
 		fps_helper.init(this);
@@ -84,7 +68,6 @@ namespace octet {
 			false, 0
 			);
 		btRigidBody *rb = mi->get_node()->get_rigid_body();
-		dynamics_world->addRigidBody(rb);
 		rigidbodies.push_back(rb);
 		nodes.push_back(mi->get_node());
 
@@ -105,32 +88,33 @@ namespace octet {
 		player_node = mi2->get_node();
 
 		create_bridge();
+		create_springs();
     }
 
 	void create_bridge() {
 		plank pred = add_plank(vec3(0), vec3(1), new material(vec4(1, 0, 0, 1)), 0.0f);
-		plank pgreen = add_plank(vec3(1.5f, 2.0f, 0.0f), vec3(.5f, .25f, 1.0f), new material(vec4(0, 1, 0, 1)), 1.0f);
+		plank pgreen = add_plank(vec3(1.5f, 2.0f, 0.0f), vec3(-0.5f, 0.25f, 1.0f), new material(vec4(0, 1, 0, 1)), 1.0f);
 		btHingeConstraint *constraint = new btHingeConstraint((*pred.get_rigidbody()), (*pgreen.get_rigidbody()),
 			btVector3(1.0f, 1.0f, 0.0f), btVector3(-0.5f, 0.25f, 0.0f),
 			btVector3(0, 0, 1), btVector3(0, 0, 1), false);
 		constraint->setLimit(-PI * 0.1f, PI * 0.1f);
 		dynamics_world->addConstraint(constraint);
 
-		plank pgreen2 = add_plank(vec3(2.0f, 2.0f, 0.0f), vec3(.5f, .25f, 1.0f), new material(vec4(0, 1, 0, 1)), 1.0f);
+		plank pgreen2 = add_plank(vec3(2.0f, 2.0f, 0.0f), vec3(0.5f, 0.25f, 1.0f), new material(vec4(0, 1, 0, 1)), 1.0f);
 		btHingeConstraint *constraint2 = new btHingeConstraint((*pgreen.get_rigidbody()), (*pgreen2.get_rigidbody()),
 			btVector3(0.5f, 0.25f, 0.0f), btVector3(-0.5f, 0.25f, 0.0f),
 			btVector3(0, 0, 1), btVector3(0, 0, 1), false);
 		constraint2->setLimit(-PI * 0.1f, PI * 0.1f);
 		dynamics_world->addConstraint(constraint2);
 
-		plank pgreen3 = add_plank(vec3(2.0f, 2.0f, 0.0f), vec3(.5f, .25f, 1.0f), new material(vec4(0, 1, 0, 1)), 1.0f);
+		plank pgreen3 = add_plank(vec3(2.0f, 2.0f, 0.0f), vec3(0.5f, 0.25f, 1.0f), new material(vec4(0, 1, 0, 1)), 1.0f);
 		btHingeConstraint *constraint3 = new btHingeConstraint((*pgreen2.get_rigidbody()), (*pgreen3.get_rigidbody()),
 			btVector3(0.5f, 0.25f, 0.0f), btVector3(-0.5f, 0.25f, 0.0f),
 			btVector3(0, 0, 1), btVector3(0, 0, 1), false);
 		constraint3->setLimit(-PI * 0.1f, PI * 0.1f);
 		dynamics_world->addConstraint(constraint3);
 
-		plank pgreen4 = add_plank(vec3(2.0f, 2.0f, 0.0f), vec3(.5f, .25f, 1.0f), new material(vec4(0, 1, 0, 1)), 1.0f);
+		plank pgreen4 = add_plank(vec3(2.0f, 2.0f, 0.0f), vec3(0.5f, 0.25f, 1.0f), new material(vec4(0, 1, 0, 1)), 1.0f);
 		btHingeConstraint *constraint4 = new btHingeConstraint((*pgreen3.get_rigidbody()), (*pgreen4.get_rigidbody()),
 			btVector3(0.5f, 0.25f, 0.0f), btVector3(-0.5f, 0.25f, 0.0f),
 			btVector3(0, 0, 1), btVector3(0, 0, 1), false);
@@ -145,11 +129,42 @@ namespace octet {
 		dynamics_world->addConstraint(constraint5);
 	}
 
+	void create_springs() {
+		/*plank pblue = add_plank(vec3(0, -0.3f, 25), vec3(1.0f, 0.2f, 1.0f), new material(vec4(0, 0, 1, 1)), 0.0f);
+		plank pgreen = add_plank(vec3(0, 6, 25), vec3(1.0f, 0.2f, 1.0f), new material(vec4(0, 1, 0, 1)), 3.0f);*/
+
+		mat4t mtw;
+		mtw.loadIdentity();
+		mtw.translate(vec3(0, -0.3f, 25));
+		mesh_instance *mi1 = app_scene->add_shape(mtw, new mesh_box(vec3(1, 1, 1)), new material(vec4(0, 0, 1, 1)), false);
+
+		mtw.loadIdentity();
+		mtw.translate(vec3(0, 6, 25));
+		mesh_instance *mi2 = app_scene->add_shape(mtw, new mesh_box(vec3(1, 1, 1)), new material(vec4(0, 1, 0, 1)), true);
+
+		btRigidBody rb1 = *(mi1->get_node()->get_rigid_body());  //*(pblue.get_rigidbody());
+		btRigidBody rb2 = *(mi2->get_node()->get_rigid_body());  //*(pgreen.get_rigidbody());
+		btTransform frame_in_a = btTransform::getIdentity();
+		frame_in_a.setOrigin(btVector3(btScalar(0), btScalar(0), btScalar(0)));
+		btTransform frame_in_b = btTransform::getIdentity();
+		frame_in_b.setOrigin(btVector3(btScalar(0), btScalar(0), btScalar(0)));
+		btGeneric6DofSpringConstraint *constraint = new btGeneric6DofSpringConstraint(rb1, rb2, frame_in_a, frame_in_b, true);
+
+		constraint->setLinearUpperLimit(btVector3(20, 0, 0));
+		constraint->setLinearLowerLimit(btVector3(-20, 0, 0));
+
+		//dynamics_world->addConstraint(constraint);
+
+		constraint->enableSpring(0, true);
+		constraint->setStiffness(0, 120);
+
+	}
+
 	plank add_plank(vec3 position, vec3 size, material *mat, btScalar mass) {
 		plank p;
 		mat4t mtw;
 
-		mtw.loadIdentity();
+		mtw.loadIdentity();	
 		mtw.translate(position);
 		p.init(mtw, size, mat, mass);
 

@@ -656,6 +656,15 @@ namespace octet { namespace scene {
         debug_line_buffer[debug_in_ptr++ & debug_line_buffer.size()-1] = end;
       }
     }
+
+	#ifdef OCTET_BULLET
+
+	btDiscreteDynamicsWorld* get_bt_world() {
+		return world;
+	}
+
+	#endif
+
   };
 }}
 

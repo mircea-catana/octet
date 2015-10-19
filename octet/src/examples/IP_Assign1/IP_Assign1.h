@@ -253,8 +253,8 @@ namespace octet {
 	  // information for our text
 	  bitmap_font font;
 
-	  const int map_width = 20;
-	  const int map_height = 20;
+	  const int map_width = 50;
+	  const int map_height = 50;
 
 	  // called when we are hit
 	  void on_hit_ship() {

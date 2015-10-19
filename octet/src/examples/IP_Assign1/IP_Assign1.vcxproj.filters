@@ -429,6 +429,9 @@
     </ClInclude>
     <ClInclude Include="IP_Assign1.h" />
     <ClInclude Include="level_generator.h" />
+    <ClInclude Include="brick_shader.h">
+      <Filter>shaders</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\resources\mesh_builder.inl">

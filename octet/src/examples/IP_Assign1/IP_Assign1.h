@@ -216,9 +216,7 @@ namespace octet {
 
 	  enum {
 		  num_sound_sources = 8,
-		  num_rows = 5,
-		  num_cols = 10,
-		  num_missiles = 2,
+		  num_missiles = 5,
 
 		  // sprite definitions
 		  ship_sprite = 0,
@@ -230,8 +228,15 @@ namespace octet {
 		  num_sprites,
 	  };
 
+      /*enum pickup_type {
+          health,
+          ammo,
+          points
+      };*/
+
 	  // timers for missiles and bombs
 	  int missiles_disabled;
+      int ammo_amount;
 
 	  // accounting for bad guys
 	  int num_lives;
@@ -243,6 +248,7 @@ namespace octet {
 	  // big array of sprites
 	  sprite sprites[num_sprites];
 	  dynarray<sprite> walls;
+      dynarray<sprite> pickups;
 
 	  // random number generator
 	  class random randomizer;
@@ -255,6 +261,7 @@ namespace octet {
 
 	  const int map_width = 50;
 	  const int map_height = 50;
+      int **map;
 
 	  // called when we are hit
 	  void on_hit_ship() {
@@ -280,6 +287,7 @@ namespace octet {
 			  sprites[ship_sprite].translate(0, -ship_speed);
 		  }
 
+          // wall collision
 		  for (unsigned i = 0; i < walls.size(); ++i) {
 			  if (sprites[ship_sprite].collides_with(walls[i])) {
 				  if (is_key_down(key_a)) {
@@ -294,6 +302,17 @@ namespace octet {
 			  }
 		  }
 
+          // pickup collision
+          for (unsigned i = 0; i < pickups.size(); ++i) {
+              if (sprites[ship_sprite].collides_with(pickups[i])) {
+                  ammo_amount += 10;
+                  auto temp = pickups[i];
+                  pickups[i] = pickups[pickups.size() - 1];
+                  pickups[pickups.size() - 1] = temp;
+                  pickups.resize(pickups.size() - 1);
+              }
+          }
+
 		  // move camera with player
 		  float dx = sprites[ship_sprite].get_position()[0] - cameraToWorld[3][0];
 		  float dy = sprites[ship_sprite].get_position()[1] - cameraToWorld[3][1];
@@ -305,12 +324,17 @@ namespace octet {
 		  if (missiles_disabled) {
 			  --missiles_disabled;
 		  } else if (is_key_going_down(' ') || is_key_going_down(key_lmb)) {
+              //check ammo availability
+              if (ammo_amount <= 0) {
+                  return;
+              }
 			  // find a missile
 			  for (int i = 0; i != num_missiles; ++i) {
 				  if (!sprites[first_missile_sprite + i].is_enabled()) {
 					  sprites[first_missile_sprite + i].set_relative(sprites[ship_sprite], 0, 0.5f);
 					  sprites[first_missile_sprite + i].is_enabled() = true;
-					  missiles_disabled = 5;
+					  missiles_disabled = 2;
+                      ammo_amount--;
 					  break;
 				  }
 			  }
@@ -348,13 +372,6 @@ namespace octet {
 		  modelToWorld.translate(x, y, 0);
 		  modelToWorld.scale(scale, scale, 1);
 		  mat4t modelToProjection = mat4t::build_projection_matrix(modelToWorld, cameraToWorld);
-
-		  /*mat4t tmp;
-		  glLoadIdentity();
-		  glTranslatef(x, y, 0);
-		  glGetFloatv(GL_MODELVIEW_MATRIX, (float*)&tmp);
-		  glScalef(scale, scale, 1);
-		  glGetFloatv(GL_MODELVIEW_MATRIX, (float*)&tmp);*/
 
 		  enum { max_quads = 32 };
 		  bitmap_font::vertex vertices[max_quads * 4];
@@ -399,7 +416,7 @@ namespace octet {
 		  int startX = 0;
 		  int startY = 0;
 		  bool found = false;
-		  int **map = generator->generate_level(map_width, map_height);
+		  map = generator->generate_level(map_width, map_height);
 		  for (unsigned i = 0; i < map_height; ++i) {
 			  for (unsigned j = 0; j < map_width; ++j) {
 				  if (map[i][j] == 1) {
@@ -417,6 +434,8 @@ namespace octet {
 			  }
 		  }
 		  delete generator;
+
+          add_pickups();
 
 		  font_texture = resource_dict::get_texture_handle(GL_RGBA, "assets/big_0.gif");
 
@@ -436,7 +455,8 @@ namespace octet {
 
 		  // sundry counters and game state.
 		  missiles_disabled = 0;
-		  num_lives = 3;
+          ammo_amount = 10;
+		  num_lives = 1;
 		  game_over = false;
 		  score = 0;
 	  }
@@ -494,13 +514,46 @@ namespace octet {
 			  walls[i].render(brick_shader_, cameraToWorld);
 		  }
 
+          // draw pickups
+          for (unsigned i = 0; i != pickups.size(); ++i) {
+              pickups[i].render(texture_shader_, cameraToWorld);
+          }
+
 		  char score_text[32];
-		  sprintf(score_text, "score: %d   lives: %d\n", score, num_lives);
-		  draw_text(texture_shader_, -1.75f, 2, 1.0f / 256, score_text);
+		  sprintf(score_text, "score: %d   ammo: %d\n", score, ammo_amount);
+          float playerX = sprites[ship_sprite].get_position().x();
+          float playerY = sprites[ship_sprite].get_position().y();
+		  draw_text(texture_shader_, playerX - 1.75f, playerY + 2, 1.0f / 256, score_text);
 
 		  // move the listener with the camera
 		  vec4 &cpos = cameraToWorld.w();
 		  alListener3f(AL_POSITION, cpos.x(), cpos.y(), cpos.z());
 	  }
+
+      void add_pickups() {
+          GLuint missile = resource_dict::get_texture_handle(GL_RGBA, "assets/invaderers/missile.gif");
+          for (unsigned i = 1; i <= 2; ++i) {
+              for (unsigned j = 1; j <= 2; ++j) {
+
+                  for (unsigned k = 0; k < 4; ++k) {
+                      int rx = randomizer.get(1, map_width / 2 - 1);
+                      int ry = randomizer.get(1, map_height / 2 - 1);
+
+                      rx += i == 1 ? 0 : map_width / 2;
+                      ry += j == 1 ? 0 : map_height / 2;
+
+                      if (map[rx][ry] == 0) {
+                          sprite s;
+                          s.init(missile, rx, map_height - ry, 0.0625f, 0.25f, sprite::sprite_type::pickup_sprite);
+                          pickups.push_back(s);
+                          map[rx][ry] = 2;
+                      } else {
+                          --k;
+                      }
+                  }
+
+              }
+          }
+      }
   };
 }

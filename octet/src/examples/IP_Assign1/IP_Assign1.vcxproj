@@ -218,6 +218,7 @@
     <ClInclude Include="brick_shader.h" />
     <ClInclude Include="IP_Assign1.h" />
     <ClInclude Include="level_generator.h" />
+    <ClInclude Include="node_map.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\resources\mesh_builder.inl" />

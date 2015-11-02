@@ -432,6 +432,7 @@
     <ClInclude Include="brick_shader.h">
       <Filter>shaders</Filter>
     </ClInclude>
+    <ClInclude Include="node_map.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\resources\mesh_builder.inl">

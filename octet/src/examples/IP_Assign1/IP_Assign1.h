@@ -228,12 +228,6 @@ namespace octet {
 		  num_sprites,
 	  };
 
-      /*enum pickup_type {
-          health,
-          ammo,
-          points
-      };*/
-
 	  // timers for missiles and bombs
 	  int missiles_disabled;
       int ammo_amount;
@@ -259,9 +253,10 @@ namespace octet {
 	  // information for our text
 	  bitmap_font font;
 
-	  const int map_width = 50;
-	  const int map_height = 50;
-      int **map;
+	  //const int map_width = 50;
+	  //const int map_height = 50;
+      //node_map* map;
+      node_map *nmap;
 
 	  // called when we are hit
 	  void on_hit_ship() {
@@ -416,24 +411,24 @@ namespace octet {
 		  int startX = 0;
 		  int startY = 0;
 		  bool found = false;
-		  map = generator->generate_level(map_width, map_height);
-		  for (unsigned i = 0; i < map_height; ++i) {
-			  for (unsigned j = 0; j < map_width; ++j) {
-				  if (map[i][j] == 1) {
+		  generator->generate_level(nmap->map_width, nmap->map_height);
+          nmap = generator->get_node_map();
+          for (unsigned i = 0; i < nmap->map_height; ++i) {
+              for (unsigned j = 0; j < nmap->map_width; ++j) {
+				  if (nmap->map[i][j].type == 1) {
 					  sprite s;
-					  s.init(white, j, map_height - i, 1, 1, sprite::sprite_type::wall_sprite);
+                      s.init(white, j, nmap->map_height - i, 1, 1, sprite::sprite_type::wall_sprite);
 					  walls.push_back(s);
 				  }
 				  if (!found) {
-					  if (map[i][j] == 0) {
+                      if (nmap->map[i][j].type == 0) {
 						  startX = j;
-						  startY = map_height - i;
+                          startY = nmap->map_height - i;
 						  found = true;
 					  }
 				  }
 			  }
 		  }
-		  delete generator;
 
           add_pickups();
 
@@ -536,17 +531,17 @@ namespace octet {
               for (unsigned j = 1; j <= 2; ++j) {
 
                   for (unsigned k = 0; k < 4; ++k) {
-                      int rx = randomizer.get(1, map_width / 2 - 1);
-                      int ry = randomizer.get(1, map_height / 2 - 1);
+                      int rx = randomizer.get(1, nmap->map_width / 2 - 1);
+                      int ry = randomizer.get(1, nmap->map_height / 2 - 1);
 
-                      rx += i == 1 ? 0 : map_width / 2;
-                      ry += j == 1 ? 0 : map_height / 2;
+                      rx += i == 1 ? 0 : nmap->map_width / 2;
+                      ry += j == 1 ? 0 : nmap->map_height / 2;
 
-                      if (map[rx][ry] == 0) {
+                      if (nmap->map[rx][ry].type == 0) {
                           sprite s;
-                          s.init(missile, rx, map_height - ry, 0.0625f, 0.25f, sprite::sprite_type::pickup_sprite);
+                          s.init(missile, rx, nmap->map_height - ry, 0.0625f, 0.25f, sprite::sprite_type::pickup_sprite);
                           pickups.push_back(s);
-                          map[rx][ry] = 2;
+                          nmap->map[rx][ry].type = 5;
                       } else {
                           --k;
                       }

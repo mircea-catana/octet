@@ -433,6 +433,9 @@
       <Filter>shaders</Filter>
     </ClInclude>
     <ClInclude Include="node_map.h" />
+    <ClInclude Include="star_shader.h">
+      <Filter>shaders</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\resources\mesh_builder.inl">

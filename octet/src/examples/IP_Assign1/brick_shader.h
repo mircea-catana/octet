@@ -3,6 +3,7 @@ namespace octet {
         class brick_shader : public shader {
             GLuint modelToProjectionIndex_;
             GLuint resolutionIndex_;
+            GLuint time_;
 
         public:
             void init() {
@@ -18,6 +19,7 @@ namespace octet {
                 // Fragment Shader
                 const char fragment_shader[] = SHADER_STR(
                     uniform vec2 resolution;
+                    uniform vec2 time;
 
                     void main() { 
                         vec2 p = gl_FragCoord.xy / resolution.xy;
@@ -37,11 +39,13 @@ namespace octet {
                 shader::init(vertex_shader, fragment_shader);
                 modelToProjectionIndex_ = glGetUniformLocation(program(), "modelToProjection");
                 resolutionIndex_ = glGetUniformLocation(program(), "resolution");
+                time_ = glGetUniformLocation(program(), "time");
             }
 
-            void render(const mat4t &modelToProjection, const vec2 &resolution) {
+            void render(const mat4t &modelToProjection, const vec2 &resolution, const vec2 &time) {
                 shader::render();
 
+                glUniform2fv(time_, 1, time.get());
                 glUniform2fv(resolutionIndex_, 1, resolution.get());
                 glUniformMatrix4fv(modelToProjectionIndex_, 1, GL_FALSE, modelToProjection.get());
             }

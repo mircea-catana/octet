@@ -33,5 +33,6 @@
   #include "../shaders/bump_shader.h"
   #include "../shaders/compute_shader.h"
   #include "brick_shader.h"
+  #include "star_shader.h"
 
 #endif

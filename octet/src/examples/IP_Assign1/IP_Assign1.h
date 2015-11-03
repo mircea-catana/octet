@@ -103,15 +103,42 @@ namespace octet {
 			glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 		}
 
-        void render(brick_shader &shader, mat4t &cameraToWorld) {
-            if (!texture) return;
+        void render(brick_shader &shader, mat4t &cameraToWorld, int viewport_width, int viewport_height) {
 
             mat4t modelToProjection = mat4t::build_projection_matrix(modelToWorld, cameraToWorld);
 
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, texture);
+            float t = ((float)((time(NULL)*23)%255)) / 255.0f;
+          
+            shader.render(modelToProjection, vec2(viewport_width, viewport_height), vec2(t, 1.0f-t));
 
-            shader.render(modelToProjection, vec2(halfWidth*2*1920, halfHeight*2*1080));
+            float vertices[] = {
+                -halfWidth, -halfHeight, 0,
+                halfWidth, -halfHeight, 0,
+                halfWidth, halfHeight, 0,
+                -halfWidth, halfHeight, 0,
+            };
+
+            glVertexAttribPointer(attribute_pos, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)vertices);
+            glEnableVertexAttribArray(attribute_pos);
+
+            static const float uvs[] = {
+                0, 0,
+                1, 0,
+                1, 1,
+                0, 1,
+            };
+
+            glVertexAttribPointer(attribute_uv, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)uvs);
+            glEnableVertexAttribArray(attribute_uv);
+
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        }
+
+        void render(star_shader &shader, mat4t &cameraToWorld, int viewport_width, int viewport_height, vec2 offset) {
+
+            mat4t modelToProjection = mat4t::build_projection_matrix(modelToWorld, cameraToWorld);
+
+            shader.render(modelToProjection, vec2(viewport_width, viewport_height), offset);
 
             float vertices[] = {
                 -halfWidth, -halfHeight, 0,
@@ -213,6 +240,7 @@ namespace octet {
 	  // shader to draw a textured triangle
 	  texture_shader texture_shader_;
       brick_shader brick_shader_;
+      star_shader star_shader_;
 
 	  enum {
 		  num_sound_sources = 8,
@@ -241,6 +269,7 @@ namespace octet {
 
 	  // big array of sprites
 	  sprite sprites[num_sprites];
+      sprite background_sprite;
 	  dynarray<sprite> walls;
       dynarray<sprite> pickups;
 
@@ -253,10 +282,12 @@ namespace octet {
 	  // information for our text
 	  bitmap_font font;
 
-	  //const int map_width = 50;
-	  //const int map_height = 50;
-      //node_map* map;
+      // level map with pathfinding capabilities
       node_map *nmap;
+
+      // player start position
+      int startX = 0;
+      int startY = 0;
 
 	  // called when we are hit
 	  void on_hit_ship() {
@@ -312,6 +343,10 @@ namespace octet {
 		  float dx = sprites[ship_sprite].get_position()[0] - cameraToWorld[3][0];
 		  float dy = sprites[ship_sprite].get_position()[1] - cameraToWorld[3][1];
 		  cameraToWorld.translate(vec3(dx, dy, 0));
+
+          dx = sprites[ship_sprite].get_position()[0] - background_sprite.get_position()[0];
+          dy = sprites[ship_sprite].get_position()[1] - background_sprite.get_position()[1];
+          background_sprite.translate(dx, dy);
 	  }
 
 	  // fire button (space)
@@ -400,16 +435,15 @@ namespace octet {
 		  // set up the shader
 		  texture_shader_.init();
           brick_shader_.init();
+          star_shader_.init();
 
 		  // set up the matrices with a camera 5 units from the origin
 		  cameraToWorld.loadIdentity();
 		  cameraToWorld.translate(0, 0, 3);
 
-		  // generate random cave
-		  GLuint white = resource_dict::get_texture_handle(GL_RGB, "#ffffff");
+          // generate random cave
+          GLuint white = resource_dict::get_texture_handle(GL_RGB, "#ffffff");
 		  level_generator *generator = new level_generator();
-		  int startX = 0;
-		  int startY = 0;
 		  bool found = false;
 		  generator->generate_level(nmap->map_width, nmap->map_height);
           nmap = generator->get_node_map();
@@ -429,6 +463,8 @@ namespace octet {
 				  }
 			  }
 		  }
+
+          background_sprite.init(white, startX, startY, 6, 6);
 
           add_pickups();
 
@@ -499,6 +535,10 @@ namespace octet {
 		  glEnable(GL_BLEND);
 		  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+          // draw background
+          vec2 offset = ((float)startX - sprites[ship_sprite].get_position()[0], (float)startY - sprites[ship_sprite].get_position()[1]);
+          background_sprite.render(star_shader_, cameraToWorld, w, h, offset);
+
 		  // draw all the sprites
 		  for (int i = 0; i != num_sprites; ++i) {
 			  sprites[i].render(texture_shader_, cameraToWorld);
@@ -506,7 +546,7 @@ namespace octet {
 
 		  // draw walls
 		  for (unsigned i = 0; i != walls.size(); ++i) {
-			  walls[i].render(brick_shader_, cameraToWorld);
+			  walls[i].render(brick_shader_, cameraToWorld, w, h);
 		  }
 
           // draw pickups

@@ -2,6 +2,8 @@
 #include <vector>
 #include <math.h>
 
+#include "../../octet.h"
+
 class node_map {
 
     struct node {
@@ -47,7 +49,14 @@ public:
         }
     }
 
-    void compute_shortest_path() {
+    octet::dynarray<octet::vec2> compute_shortest_path() {
+        octet::dynarray<octet::vec2> points;
+        setup_start_end_nodes();
+
+        if (end_node == nullptr) {
+            return points;
+        }
+
         compute_h_values();
 
         open_list = std::vector<node*>();
@@ -56,13 +65,32 @@ public:
         open_list.clear();
         closed_list.clear();
 
-        while (true) {
+        int count = 0;
+        while (true && count < 50) {
             select_current_node();
             if (current_node->x == end_node->x && current_node->y == end_node->y) {
                 break;
             }
             add_neighbors_to_open();
             compute_g_values();
+            count++;
+        }
+
+        while (end_node != nullptr) {
+            points.push_back(octet::vec2(end_node->x, end_node->y));
+            end_node = end_node->parent;
+        }
+
+        return points;
+    }
+
+    void clear_characters() {
+        for (int i = 0; i < map_height; ++i) {
+            for (int j = 0; j < map_width; ++j) {
+                if (map[i][j].type != 0 && map[i][j].type != 1) {
+                    map[i][j].type = 0;
+                }
+            }
         }
     }
 
@@ -111,6 +139,20 @@ public:
     }
 
 private:
+
+    void setup_start_end_nodes() {
+        for (int i = 0; i < map_height; ++i) {
+            for (int j = 0; j < map_width; ++j) {
+                map[i][j].g_cost = 999;
+                if (map[i][j].type == 2) {
+                    end_node = &map[i][j];
+                } else if (map[i][j].type == 3) {
+                    map[i][j].g_cost = 0;
+                    start_node = &map[i][j];
+                }
+            }
+        }
+    }
 
     int get_f_cost(node n) {
         return n.g_cost + n.h_cost;

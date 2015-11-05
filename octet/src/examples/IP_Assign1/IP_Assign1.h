@@ -229,20 +229,28 @@ namespace octet {
 		sprite_type get_type() {
 			return type;
 		}
+
+        float get_squared_distance(float x, float y) {
+            float dx2 = pow(abs(x - get_position().x()), 2);
+            float dy2 = pow(abs(y - get_position().y()), 2);
+            return dx2 + dy2;
+        }
 	};
 
     class enemy {
         vec2 pos;
+        vec2 target_pos;
         sprite spr;
-        node_map nmap;
     public:
 
         enemy() {
             pos = vec2(0, 0);
+            target_pos = vec2(0, 0);
         }
 
         enemy(int x, int y, sprite s) {
             pos = vec2(x, y);
+            target_pos = vec2(0, 0);
             spr = s;
         }
 
@@ -251,12 +259,17 @@ namespace octet {
         }
 
         vec2& get_pos() {
-            return pos;
+            return spr.get_position();
+        }
+
+        vec2& get_target_pos() {
+            return target_pos;
         }
 
         enemy& operator= (const enemy& other) {
             pos = other.pos;
             spr = other.spr;
+            target_pos = other.target_pos;
             return *this;
         }
 
@@ -348,6 +361,16 @@ namespace octet {
 			  sprites[ship_sprite].translate(0, -ship_speed);
 		  }
 
+          // enemy collision
+          for (unsigned i = 0; i < enemies.size(); ++i) {
+              if (sprites[ship_sprite].collides_with(enemies[i].get_sprite())) {
+                  game_over = true;
+                  float dx = sprites[ship_sprite].get_position().x() - sprites[game_over_sprite].get_position().x();
+                  float dy = sprites[ship_sprite].get_position().y() -  sprites[game_over_sprite].get_position().y();
+                  sprites[game_over_sprite].translate(dx, dy);
+              }
+          }
+
           // wall collision
 		  for (unsigned i = 0; i < walls.size(); ++i) {
 			  if (sprites[ship_sprite].collides_with(walls[i])) {
@@ -435,6 +458,35 @@ namespace octet {
 		  next_missile:;
 		  }
 	  }
+
+      void move_enemies() {
+          for (unsigned i = 0; i < enemies.size(); ++i) {
+              float distance = sprites[ship_sprite].get_squared_distance(enemies[i].get_pos().x(), enemies[i].get_pos().y());
+              if (distance < 5.0f) {
+
+                  nmap->clear_characters();
+
+                  int pX = (int)sprites[ship_sprite].get_position().x();
+                  int pY = nmap->map_height - (int)sprites[ship_sprite].get_position().y();
+                  int eX = (int)enemies[i].get_pos().x();
+                  int eY = nmap->map_height - (int)enemies[i].get_pos().y();
+
+                  nmap->map[pY][pX].type = 2;
+                  nmap->map[eY][eX].type = 3;
+
+                  dynarray<octet::vec2> pathPoints = nmap->compute_shortest_path();
+                  printf("\n\nInvaderer %d,%d Size: %d\n", eY, eX, pathPoints.size());
+                  for (unsigned j = 0; j < pathPoints.size(); ++j) {
+                      printf("%d,%d - ", (int)pathPoints[j].y(), (int)pathPoints[j].x());
+                  }
+
+                  /*vec2 target = pathPoints[pathPoints.size() - 1];
+                  float dx = sprites[ship_sprite].get_position().x() - target.x();
+                  float dy = sprites[ship_sprite].get_position().y() - target.y();
+                  enemies[i].get_sprite().translate(dx / 10.0f, dy / 10.0f);*/
+              }
+          }
+      }
 
 	  void draw_text(texture_shader &shader, float x, float y, float scale, const char *text) {
 		  mat4t modelToWorld;
@@ -544,6 +596,8 @@ namespace octet {
 		  fire_missiles();
 
 		  move_missiles();
+
+          move_enemies();
 	  }
 
 	  vec3 mouseWorldPos;
@@ -651,6 +705,7 @@ namespace octet {
 
                       if (nmap->map[ry][rx].type == 0) {
                           enemy e;
+                          e.get_pos() = vec2(rx, ry);
                           e.get_sprite().init(invaderer, rx, nmap->map_height - ry, 0.25f, 0.25f, sprite::sprite_type::enemy_sprite);
                           enemies.push_back(e);
                           nmap->map[ry][rx].type = 3;
@@ -660,9 +715,14 @@ namespace octet {
                   }
 
               }
+
+              nmap->print_map();
           }
 
-          nmap->print_map();
+          //nmap->print_map();
+          //nmap->clear_characters();
+          //printf("\n\n");
+          //nmap->print_map();
       }
 
   };

@@ -241,6 +241,7 @@ namespace octet {
         vec2 pos;
         vec2 target_pos;
         sprite spr;
+        node_map nmap;
     public:
 
         enemy() {
@@ -264,6 +265,10 @@ namespace octet {
 
         vec2& get_target_pos() {
             return target_pos;
+        }
+
+        node_map& get_nmap() {
+            return nmap;
         }
 
         enemy& operator= (const enemy& other) {
@@ -464,26 +469,38 @@ namespace octet {
               float distance = sprites[ship_sprite].get_squared_distance(enemies[i].get_pos().x(), enemies[i].get_pos().y());
               if (distance < 5.0f) {
 
-                  nmap->clear_characters();
+                  if (enemies[i].get_target_pos().x() == 0.0f && enemies[i].get_target_pos().y() == 0.0f) {
+                      enemies[i].get_nmap().init(nmap);
+                      enemies[i].get_nmap().clear_characters();
 
-                  int pX = (int)sprites[ship_sprite].get_position().x();
-                  int pY = nmap->map_height - (int)sprites[ship_sprite].get_position().y();
-                  int eX = (int)enemies[i].get_pos().x();
-                  int eY = nmap->map_height - (int)enemies[i].get_pos().y();
+                      int pX = (int)sprites[ship_sprite].get_position().x();
+                      int pY = enemies[i].get_nmap().map_height - (int)sprites[ship_sprite].get_position().y();
+                      int eX = (int)enemies[i].get_pos().x();
+                      int eY = enemies[i].get_nmap().map_height - (int)enemies[i].get_pos().y();
 
-                  nmap->map[pY][pX].type = 2;
-                  nmap->map[eY][eX].type = 3;
+                      enemies[i].get_nmap().map[pY][pX].type = 2;
+                      enemies[i].get_nmap().map[eY][eX].type = 3;
 
-                  dynarray<octet::vec2> pathPoints = nmap->compute_shortest_path();
-                  printf("\n\nInvaderer %d,%d Size: %d\n", eY, eX, pathPoints.size());
-                  for (unsigned j = 0; j < pathPoints.size(); ++j) {
-                      printf("%d,%d - ", (int)pathPoints[j].y(), (int)pathPoints[j].x());
+                      dynarray<octet::vec2> path_points = enemies[i].get_nmap().compute_shortest_path();
+
+                      if (path_points.size() >= 2) {
+                          enemies[i].get_target_pos().x() = path_points[path_points.size() - 2].x();
+                          enemies[i].get_target_pos().y() = enemies[i].get_nmap().map_height - path_points[path_points.size() - 2].y();
+                      } else {
+                          enemies[i].get_target_pos() = sprites[ship_sprite].get_position();
+                      }
+                  } else {
+                      float dx = enemies[i].get_target_pos().x() - enemies[i].get_sprite().get_position().x();
+                      float dy = enemies[i].get_target_pos().y() - enemies[i].get_sprite().get_position().y();
+                      enemies[i].get_sprite().translate(dx / 10.0f, dy / 10.0f);
+
+                      dx = fabsf(enemies[i].get_sprite().get_position().x() - enemies[i].get_target_pos().x());
+                      dy = fabsf(enemies[i].get_sprite().get_position().y() - enemies[i].get_target_pos().y());
+                      if (dx <= 0.1f && dy <= 0.1f) {
+                          enemies[i].get_target_pos() = vec2(0.0f, 0.0f);
+                      }
+
                   }
-
-                  /*vec2 target = pathPoints[pathPoints.size() - 1];
-                  float dx = sprites[ship_sprite].get_position().x() - target.x();
-                  float dy = sprites[ship_sprite].get_position().y() - target.y();
-                  enemies[i].get_sprite().translate(dx / 10.0f, dy / 10.0f);*/
               }
           }
       }

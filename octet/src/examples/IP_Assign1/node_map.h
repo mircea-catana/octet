@@ -49,6 +49,24 @@ public:
         }
     }
 
+    void init(node_map *nmap) {
+        for (int i = 0; i < map_height; ++i) {
+            for (int j = 0; j < map_width; ++j) {
+                node temp;
+                temp.type = nmap->map[i][j].type;
+                temp.x = nmap->map[i][j].x;
+                temp.y = nmap->map[i][j].y;
+                map[i][j] = temp;
+
+                if (map[i][j].type == 2) {
+                    end_node = &map[i][j];
+                } else if (map[i][j].type == 3) {
+                    start_node = &map[i][j];
+                }
+            }
+        }
+    }
+
     octet::dynarray<octet::vec2> compute_shortest_path() {
         octet::dynarray<octet::vec2> points;
         setup_start_end_nodes();

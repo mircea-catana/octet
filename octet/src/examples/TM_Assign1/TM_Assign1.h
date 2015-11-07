@@ -36,10 +36,6 @@ namespace octet {
 	};
 	terrain_mesh_source terrain_source;
 
-	//scene objects
-	dynarray<scene_node*> nodes;
-	dynarray<btRigidBody*> rigidbodies;
-
   public:
     /// this is called when we construct the class before everything is initialised.
     TM_Assign1(int argc, char **argv) : app(argc, argv) {
@@ -68,8 +64,6 @@ namespace octet {
 			false, 0
 			);
 		btRigidBody *rb = mi->get_node()->get_rigid_body();
-		rigidbodies.push_back(rb);
-		nodes.push_back(mi->get_node());
 
 		float player_height = 1.8f;
 		float player_radius = 0.25f;
@@ -91,76 +85,101 @@ namespace octet {
 		create_springs();
     }
 
-	void create_bridge() {
-		plank pred = add_plank(vec3(0), vec3(1), new material(vec4(1, 0, 0, 1)), 0.0f);
-		plank pgreen = add_plank(vec3(1.5f, 2.0f, 0.0f), vec3(-0.5f, 0.25f, 1.0f), new material(vec4(0, 1, 0, 1)), 1.0f);
-		btHingeConstraint *constraint = new btHingeConstraint((*pred.get_rigidbody()), (*pgreen.get_rigidbody()),
-			btVector3(1.0f, 1.0f, 0.0f), btVector3(-0.5f, 0.25f, 0.0f),
-			btVector3(0, 0, 1), btVector3(0, 0, 1), false);
-		constraint->setLimit(-PI * 0.1f, PI * 0.1f);
-		dynamics_world->addConstraint(constraint);
+    void create_bridge() {
+        mat4t mtw;
+        mtw.loadIdentity();
+        mtw.translate(vec3(0, 0.5f, 0));
+        mesh_instance *b1 = app_scene->add_shape(mtw, new mesh_box(vec3(1, 1, 1)), new material(vec4(1, 0, 0, 1)), false);
 
-		plank pgreen2 = add_plank(vec3(2.0f, 2.0f, 0.0f), vec3(0.5f, 0.25f, 1.0f), new material(vec4(0, 1, 0, 1)), 1.0f);
-		btHingeConstraint *constraint2 = new btHingeConstraint((*pgreen.get_rigidbody()), (*pgreen2.get_rigidbody()),
-			btVector3(0.5f, 0.25f, 0.0f), btVector3(-0.5f, 0.25f, 0.0f),
-			btVector3(0, 0, 1), btVector3(0, 0, 1), false);
-		constraint2->setLimit(-PI * 0.1f, PI * 0.1f);
-		dynamics_world->addConstraint(constraint2);
+        mtw.loadIdentity();
+        mtw.translate(vec3(1.6f, 1.25f, 0.0f));
+        mesh_instance *p1 = app_scene->add_shape(mtw, new mesh_box(vec3(0.5f, 0.25f, 1)), new material(vec4(0, 1, 0, 1)), true);
 
-		plank pgreen3 = add_plank(vec3(2.0f, 2.0f, 0.0f), vec3(0.5f, 0.25f, 1.0f), new material(vec4(0, 1, 0, 1)), 1.0f);
-		btHingeConstraint *constraint3 = new btHingeConstraint((*pgreen2.get_rigidbody()), (*pgreen3.get_rigidbody()),
-			btVector3(0.5f, 0.25f, 0.0f), btVector3(-0.5f, 0.25f, 0.0f),
-			btVector3(0, 0, 1), btVector3(0, 0, 1), false);
-		constraint3->setLimit(-PI * 0.1f, PI * 0.1f);
-		dynamics_world->addConstraint(constraint3);
+        mtw.loadIdentity();
+        mtw.translate(vec3(2.7f, 1.25f, 0.0f));
+        mesh_instance *p2 = app_scene->add_shape(mtw, new mesh_box(vec3(0.5f, 0.25f, 1)), new material(vec4(0, 1, 1, 1)), true);
 
-		plank pgreen4 = add_plank(vec3(2.0f, 2.0f, 0.0f), vec3(0.5f, 0.25f, 1.0f), new material(vec4(0, 1, 0, 1)), 1.0f);
-		btHingeConstraint *constraint4 = new btHingeConstraint((*pgreen3.get_rigidbody()), (*pgreen4.get_rigidbody()),
-			btVector3(0.5f, 0.25f, 0.0f), btVector3(-0.5f, 0.25f, 0.0f),
-			btVector3(0, 0, 1), btVector3(0, 0, 1), false);
-		constraint4->setLimit(-PI * 0.1f, PI * 0.1f);
-		dynamics_world->addConstraint(constraint4);
+        mtw.loadIdentity();
+        mtw.translate(vec3(3.8f, 1.25f, 0.0f));
+        mesh_instance *p3 = app_scene->add_shape(mtw, new mesh_box(vec3(0.5f, 0.25f, 1)), new material(vec4(0, 1, 0, 1)), true);
 
-		plank pred2 = add_plank(vec3(6, 0, 0), vec3(1), new material(vec4(1, 0, 0, 1)), 0.0f);
-		btHingeConstraint *constraint5 = new btHingeConstraint((*pgreen4.get_rigidbody()), (*pred2.get_rigidbody()),
-			btVector3(0.5f, 0.25f, 0.0f), btVector3(-1.0f, 1.0f, 0.0f),
-			btVector3(0, 0, 1), btVector3(0, 0, 1), false);
-		constraint5->setLimit(-PI * 0.1f, PI * 0.1f);
-		dynamics_world->addConstraint(constraint5);
-	}
+        mtw.loadIdentity();
+        mtw.translate(vec3(4.9f, 1.25f, 0.0f));
+        mesh_instance *p4 = app_scene->add_shape(mtw, new mesh_box(vec3(0.5f, 0.25f, 1)), new material(vec4(0, 1, 1, 1)), true);
 
-	void create_springs() {
-		/*plank pblue = add_plank(vec3(0, -0.3f, 25), vec3(1.0f, 0.2f, 1.0f), new material(vec4(0, 0, 1, 1)), 0.0f);
-		plank pgreen = add_plank(vec3(0, 6, 25), vec3(1.0f, 0.2f, 1.0f), new material(vec4(0, 1, 0, 1)), 3.0f);*/
+        mtw.loadIdentity();
+        mtw.translate(vec3(6.5f, 0.5f, 0.0f));
+        mesh_instance *b2 = app_scene->add_shape(mtw, new mesh_box(vec3(1, 1, 1)), new material(vec4(1, 0, 0, 1)), false);
 
-		mat4t mtw;
-		mtw.loadIdentity();
-		mtw.translate(vec3(0, -0.3f, 25));
-		mesh_instance *mi1 = app_scene->add_shape(mtw, new mesh_box(vec3(1, 1, 1)), new material(vec4(0, 0, 1, 1)), false);
+        // hinges
 
-		mtw.loadIdentity();
-		mtw.translate(vec3(0, 6, 25));
-		mesh_instance *mi2 = app_scene->add_shape(mtw, new mesh_box(vec3(1, 1, 1)), new material(vec4(0, 1, 0, 1)), true);
+        btHingeConstraint *c1 = new btHingeConstraint(*(b1->get_node()->get_rigid_body()), *(p1->get_node()->get_rigid_body()),
+            btVector3(0.5f, 0.5f, 0.0f), btVector3(-0.5f, 0.25f, 0.0f),
+            btVector3(0, 0, 1), btVector3(0, 0, 1), false);
+        c1->setLimit(-PI * 0.1f, PI* 0.1f);
+        dynamics_world->addConstraint(c1);
 
-		btRigidBody rb1 = *(mi1->get_node()->get_rigid_body());  //*(pblue.get_rigidbody());
-		btRigidBody rb2 = *(mi2->get_node()->get_rigid_body());  //*(pgreen.get_rigidbody());
-		btTransform frame_in_a = btTransform::getIdentity();
-		frame_in_a.setOrigin(btVector3(btScalar(0), btScalar(0), btScalar(0)));
-		btTransform frame_in_b = btTransform::getIdentity();
-		frame_in_b.setOrigin(btVector3(btScalar(0), btScalar(0), btScalar(0)));
-		btGeneric6DofSpringConstraint *constraint = new btGeneric6DofSpringConstraint(rb1, rb2, frame_in_a, frame_in_b, true);
+        btHingeConstraint *c2 = new btHingeConstraint(*(p1->get_node()->get_rigid_body()), *(p2->get_node()->get_rigid_body()),
+            btVector3(0.5f, 0.25f, 0.0f), btVector3(-0.5f, 0.25f, 0.0f),
+            btVector3(0, 0, 1), btVector3(0, 0, 1), false);
+        c2->setLimit(-PI * 0.1f, PI* 0.1f);
+        dynamics_world->addConstraint(c2);
 
-		constraint->setLinearUpperLimit(btVector3(20, 0, 0));
-		constraint->setLinearLowerLimit(btVector3(-20, 0, 0));
+        btHingeConstraint *c3 = new btHingeConstraint(*(p2->get_node()->get_rigid_body()), *(p3->get_node()->get_rigid_body()),
+            btVector3(0.5f, 0.25f, 0.0f), btVector3(-0.5f, 0.25f, 0.0f),
+            btVector3(0, 0, 1), btVector3(0, 0, 1), false);
+        c3->setLimit(-PI * 0.1f, PI* 0.1f);
+        dynamics_world->addConstraint(c3);
 
-		//dynamics_world->addConstraint(constraint);
+        btHingeConstraint *c4 = new btHingeConstraint(*(p3->get_node()->get_rigid_body()), *(p4->get_node()->get_rigid_body()),
+            btVector3(0.5f, 0.25f, 0.0f), btVector3(-0.5f, 0.25f, 0.0f),
+            btVector3(0, 0, 1), btVector3(0, 0, 1), false);
+        c4->setLimit(-PI * 0.1f, PI* 0.1f);
+        dynamics_world->addConstraint(c4);
 
-		constraint->enableSpring(0, true);
-		constraint->setStiffness(0, 120);
+        btHingeConstraint *c5 = new btHingeConstraint(*(p4->get_node()->get_rigid_body()), *(b2->get_node()->get_rigid_body()),
+            btVector3(0.5f, 0.25f, 0.0f), btVector3(-0.5f, 0.5f, 0.0f),
+            btVector3(0, 0, 1), btVector3(0, 0, 1), false);
+        c5->setLimit(-PI * 0.1f, PI* 0.1f);
+        dynamics_world->addConstraint(c5);
+    }
 
-	}
+    void create_springs() {
+        mat4t mtw;
+        mtw.translate(-3, 10, 0);
+        btRigidBody *rb1 = NULL;
+        mesh_instance *mi1 = app_scene->add_shape(mtw, new mesh_box(vec3(1, 1, 1)), new material(vec4(1, 0, 0, 1)), false);
+        rb1 = mi1->get_node()->get_rigid_body();
 
-	plank add_plank(vec3 position, vec3 size, material *mat, btScalar mass) {
+        mtw.loadIdentity();
+        mtw.translate(-3, 8, 0);
+        btRigidBody *rb2 = NULL;
+        mesh_instance *mi2 = app_scene->add_shape(mtw, new mesh_box(vec3(1, 1, 1)), new material(vec4(0, 1, 0, 1)), true, 1.0f);
+        rb2 = mi2->get_node()->get_rigid_body();
+
+        btTransform frameInA, frameInB;
+        frameInA = btTransform::getIdentity();
+        frameInA.setOrigin(btVector3(btScalar(0.0f), btScalar(-0.5f), btScalar(0.0f)));
+        frameInB = btTransform::getIdentity();
+        frameInB.setOrigin(btVector3(btScalar(0.0f), btScalar(0.5f), btScalar(0.0f)));
+
+        btGeneric6DofSpringConstraint *c1 = new btGeneric6DofSpringConstraint(*rb2, *rb1, frameInA, frameInB, true);
+        c1->setLinearUpperLimit(btVector3(0.0f, 5.0f, 0.0f));
+        c1->setLinearLowerLimit(btVector3(0.0f, -5.0f, 0.0f));
+
+        c1->setAngularLowerLimit(btVector3(0.f, 0.0f, -1.5f));
+        c1->setAngularUpperLimit(btVector3(0.f, 0.0f, 1.5f));
+
+        dynamics_world->addConstraint(c1, true);
+
+        c1->setDbgDrawSize(btScalar(5.f));
+        c1->enableSpring(0, true);
+        c1->setStiffness(0, 10.0f);
+        c1->setDamping(0, 0.5f);
+        //c1->setEquilibriumPoint();
+    }
+
+	plank add_plank(vec3 position, vec3 size, material *mat, btScalar mass, bool is_dynamic) {
 		plank p;
 		mat4t mtw;
 
@@ -169,10 +188,9 @@ namespace octet {
 		p.init(mtw, size, mat, mass);
 
 		dynamics_world->addRigidBody(p.get_rigidbody());
-		rigidbodies.push_back(p.get_rigidbody());
-		nodes.push_back(p.get_scene_node());
-		app_scene->add_mesh_instance(new mesh_instance(p.get_scene_node(), p.get_mesh(), p.get_material()));
+        app_scene->add_shape(mtw, p.get_mesh(), p.get_material(), is_dynamic);
 		app_scene->add_child(p.get_scene_node());
+        
 		return p;
 	}
 
@@ -192,20 +210,6 @@ namespace octet {
 
 		// update matrices. assume 30 fps.
 		app_scene->update(1.0f / 30);
-
-		// physics step
-		dynamics_world->stepSimulation(1.0f / 30);
-
-		// update mesh positions to physics
-		for (int i = 0; i != rigidbodies.size(); ++i) {
-			btRigidBody *rigidbody = rigidbodies[i];
-			btQuaternion btq = rigidbody->getOrientation();
-			btVector3 pos = rigidbody->getCenterOfMassPosition();
-			quat q(btq[0], btq[1], btq[2], btq[3]);
-			mat4t mtw = q;
-			mtw[3] = vec4(pos[0], pos[1], pos[2], 1);
-			nodes[i]->access_nodeToParent() = mtw;
-		}
 
 		// draw the scene
 		app_scene->render((float)vx / vy);

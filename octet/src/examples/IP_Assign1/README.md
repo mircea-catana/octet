@@ -1,0 +1,12 @@
+<h1>Space Maze</h1>
+<h2>Introduction</h2>
+<p>This is a demo project for the first assignment in the class Intro to Programming at MSc Computer Games and Entertainment at Goldsmiths University of London. The project had to be developed starting from the example_invaderers which comes with the octet framework.</p>
+
+<h2>Gameplay</h2>
+<p>In the game you play a spaceship trapped in an asteroid belt trying to find your way out while enemies chase you down. You also have the ability to shoot down enemies but the ammo you have is limited so unless you find more through the maze, you will have to be very accurate with your shots.</p>
+
+<h2>Generating the levels</h2>
+<p>The levels in the game are designed as 2D mazes and are generated procedurally using a version of the cellular automata cave generation algorithm. By having procedural levels, we can assure replay-ability and not worry too much about designing lots of levels by hand. The algorithm uses a seed to generate the map which is currently set to the timestamp of the start of that particular level but by having this mechanism in place, we can store a number of seeds in a file and have the algorithm generate the same map. In order to generate the cave like structure, we first randomly fill a matrix with walls and open spaces and after that we go through a smoothing process so that the map starts to look like cave rather than noise. Finally we must make sure that there is a way to access every part of the cave and that there are no sections which are cut off. The full description of the algorithm and the model for the version which I implemented came from: <a href="http://www.roguebasin.com/index.php?title=Cellular_Automata_Method_for_Generating_Random_Cave-Like_Levels">link</a></p>
+
+<h2>Path Finding</h2>
+<p>A system had to be implemented in order to make enemies track you down and chase you through the maze. Since the levels are generated procedurally and we do not want inaccuracies such as enemies being able to move through walls, a path finding algorithm had to be implemented. For this purpose I chose to go with the very well know A* algorithm. A full description of the algorithm can be found at: <a href="https://en.wikipedia.org/wiki/A*_search_algorithm">link</a>. The implementation of this can be found in the “node_map” class. For every enemy that is in a short area around the player, the algorithm will run and set the target locations for the enemy to follow in order to reach the player. If the enemy succeeds in colliding with the player ship the game is over.</p>

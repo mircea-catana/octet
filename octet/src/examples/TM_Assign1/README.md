@@ -1,4 +1,4 @@
-<h1>Physics Demo<h1>
+<h1>Physics Demo</h1>
 
 <p>This is a demo project for the first assignment in the class Tools and Middleware at MSc Computer Games and Entertainment at Goldsmiths University of London. The project had to present examples of using hinge constraints, spring constraints and collision detection by means of the Bullet Physics Library included with the Octet framework.</p>
 

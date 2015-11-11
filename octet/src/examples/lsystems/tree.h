@@ -71,6 +71,15 @@ namespace octet {
             }
         }
 
+        bool is_char_in_array(char c, dynarray<char> arr) {
+            for (unsigned int i = 0; i < arr.size(); ++i) {
+                if (arr[i] == c) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
     public:
 
         void read_file(string name) {
@@ -78,6 +87,29 @@ namespace octet {
             app_utils::get_url(file_content, name);
 
             read_lsystem_data(file_content);
+        }
+
+        void iterate() {
+            dynarray<char> new_axiom;
+            for (unsigned int i = 0; i < axiom.size(); ++i) {
+                if (is_char_in_array(axiom[i], variables)) {
+                    for (unsigned int j = 0; j < rules[axiom[i]].size(); ++j) {
+                        new_axiom.push_back(rules[axiom[i]][j]);
+                    }
+                } else {
+                    new_axiom.push_back(axiom[i]);
+                }
+            }
+
+            axiom.resize(new_axiom.size());
+            for (unsigned int i = 0; i < new_axiom.size(); ++i) {
+                //printf("%c", new_axiom[i]);
+                axiom[i] = new_axiom[i];
+            }
+        }
+
+        dynarray<char> get_axiom() {
+            return axiom;
         }
 
     };

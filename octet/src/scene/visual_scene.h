@@ -463,6 +463,13 @@ namespace octet { namespace scene {
 
     void delete_mesh_instance(mesh_instance *inst) {
       //mesh_instances.erase_by_value(inst);
+        for (unsigned int i = 0; i < mesh_instances.size(); ++i) {
+            if (mesh_instances[i] == inst) {
+                mesh_instances[i] = mesh_instances[mesh_instances.size() - 1];
+                mesh_instances.resize(mesh_instances.size() - 1);
+                return;
+            }
+        }
     }
 
     void delete_animation_instance(animation_instance *inst) {

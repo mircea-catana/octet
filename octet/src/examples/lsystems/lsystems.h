@@ -40,12 +40,20 @@ namespace octet {
 
         material *material_;
 
+        const int MIN_FILE_NO = 0;
+        const int MAX_FILE_NO = 6;
+        int current_file_no = 0;
+
+        const float MIN_ANGLE = 20.0f;
+        const float MAX_ANGLE = 45.0f;
+        float angle_increment = 25.0f;
+
     public:
         lsystems(int argc, char **argv) : app(argc, argv) {
         }
 
         void app_init() {
-            t.read_file("assets/lsystems/lsystem.txt");
+            t.read_file(current_file_no);
 
             app_scene = new visual_scene();
             app_scene->create_default_camera_and_lights();
@@ -66,17 +74,53 @@ namespace octet {
             app_scene->render((float)w / h);
         }
 
+        void redraw() {
+            app_scene = new visual_scene();
+            app_scene->create_default_camera_and_lights();
+
+            tree_max_y = 0.0f;
+            create_geometry();
+
+            app_scene->get_camera_instance(0)->get_node()->translate(vec3(0, tree_max_y / 2.0f, 2.0f));
+        }
+
         void handle_input() {
-            if (is_key_going_down(key_space)) {
+            if (is_key_going_down(key_up)) {
                 t.iterate();
+                redraw();
+            }
 
-                app_scene = new visual_scene();
-                app_scene->create_default_camera_and_lights();
+            if (is_key_going_down(key_down)) {
+                t.deiterate();
+                redraw();
+            }
 
-                tree_max_y = 0.0f;
-                create_geometry();
+            if (is_key_going_down(key_right)) {
+                current_file_no = ++current_file_no % MAX_FILE_NO;
+                t.read_file(current_file_no);
+                redraw();
+            }
 
-                app_scene->get_camera_instance(0)->get_node()->translate(vec3(0, tree_max_y / 2.0f, 2.0f));
+            if (is_key_going_down(key_left)) {
+                if (--current_file_no < 0) {
+                    current_file_no = MAX_FILE_NO - 1;
+                }
+                t.read_file(current_file_no);
+                redraw();
+            }
+
+            if (is_key_down(key_num_plus)) {
+                if (angle_increment < MAX_ANGLE) {
+                    angle_increment += 1.0f;
+                    redraw();
+                }
+            }
+
+            if (is_key_down(key_num_minus)) {
+                if (angle_increment > MIN_ANGLE) {
+                    angle_increment -= 1.0f;
+                    redraw();
+                }
             }
         }
 
@@ -112,9 +156,9 @@ namespace octet {
             float angle = 0.0f;
             for (unsigned int i = 0; i < axiom.size(); ++i) {
                 if (axiom[i] == '+') {
-                    angle += 45.0f;
+                    angle += angle_increment;
                 } else if (axiom[i] == '-') {
-                    angle -= 45.0f;
+                    angle -= angle_increment;
                 } else if (axiom[i] == '[') {
                     node n = node(pos, angle);
                     node_stack.push_back(n);

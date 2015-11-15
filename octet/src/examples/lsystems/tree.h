@@ -3,11 +3,24 @@ namespace octet {
 
         dynarray<char> variables;
         dynarray<char> constants;
+        dynarray<char> initial_axiom;
         dynarray<char> axiom;
         hash_map<char, dynarray<char>> rules;
 
+        const int MIN_ITERATION = 0;
+        const int MAX_ITERATION = 6;
+        int current_iteration;
+
         // store data from text file in variables
         void read_lsystem_data(dynarray<uint8_t> file_content) {
+
+            variables.reset();
+            constants.reset();
+            initial_axiom.reset();
+            axiom.reset();
+            rules.clear();
+
+            current_iteration = 0;
 
             dynarray<uint8_t> clean_data;
             for each(uint8_t c in file_content) {
@@ -49,6 +62,7 @@ namespace octet {
                 if (current_char == ';') {
                     break;
                 } else {
+                    initial_axiom.push_back(current_char);
                     axiom.push_back(current_char);
                 }
             }
@@ -82,14 +96,20 @@ namespace octet {
 
     public:
 
-        void read_file(string name) {
+        void read_file(int file_number) {
             dynarray<uint8_t> file_content;
-            app_utils::get_url(file_content, name);
+            std::string file_name = "assets/lsystems/lsystem" + std::to_string(file_number) + ".txt";
+            app_utils::get_url(file_content, file_name.c_str());
 
             read_lsystem_data(file_content);
         }
 
         void iterate() {
+            if (current_iteration >= MAX_ITERATION) {
+                return;
+            }
+
+            ++current_iteration;
             dynarray<char> new_axiom;
             for (unsigned int i = 0; i < axiom.size(); ++i) {
                 if (is_char_in_array(axiom[i], variables)) {
@@ -103,8 +123,25 @@ namespace octet {
 
             axiom.resize(new_axiom.size());
             for (unsigned int i = 0; i < new_axiom.size(); ++i) {
-                //printf("%c", new_axiom[i]);
                 axiom[i] = new_axiom[i];
+            }
+        }
+
+        void deiterate() {
+            if (current_iteration <= MIN_ITERATION) {
+                return;
+            }
+
+            int count = current_iteration - 1;
+            current_iteration = 0;
+            axiom.resize(initial_axiom.size());
+
+            for (unsigned int i = 0; i < initial_axiom.size(); ++i) {
+                axiom[i] = initial_axiom[i];
+            }
+
+            for (unsigned int i = 0; i < count; ++i) {
+                iterate();
             }
         }
 

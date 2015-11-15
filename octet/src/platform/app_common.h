@@ -34,6 +34,9 @@ namespace octet {
     key_esc = 27,
     key_space = 32,
 
+    key_num_plus = 107,
+    key_num_minus = 109,
+
     // other keys have the following codes:
     key_f1 = 0x80,
     key_f2,

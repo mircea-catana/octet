@@ -149,5 +149,9 @@ namespace octet {
             return axiom;
         }
 
+        int get_current_iteration() {
+            return current_iteration;
+        }
+
     };
 }

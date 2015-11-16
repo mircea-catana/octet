@@ -38,10 +38,13 @@ namespace octet {
 
         float tree_max_y = 0.0f;
 
-        material *material_;
+        material *bark_material;
+        material *leaf_material;
+        material *drawing_material;
+        int current_level = 0;
 
         const int MIN_FILE_NO = 0;
-        const int MAX_FILE_NO = 6;
+        const int MAX_FILE_NO = 8;
         int current_file_no = 0;
 
         const float MIN_ANGLE = 20.0f;
@@ -59,7 +62,9 @@ namespace octet {
             app_scene->create_default_camera_and_lights();
             app_scene->get_camera_instance(0)->get_node()->translate(vec3(0.0f, 0.0f, 1.0f));
 
-            material_ = new material(vec4(0.8f, 0.4f, 0.2f, 1.0f));
+            bark_material = new material(vec4(0.8f, 0.4f, 0.2f, 1.0f));
+            leaf_material = new material(vec4(0.3f, 0.5f, 0.1f, 1.0f));
+            drawing_material = bark_material;
 
             create_geometry();
         }
@@ -98,6 +103,15 @@ namespace octet {
             if (is_key_going_down(key_right)) {
                 current_file_no = ++current_file_no % MAX_FILE_NO;
                 t.read_file(current_file_no);
+
+                if (current_file_no == 6) {
+                    angle_increment = 90.0f;
+                } else if (current_file_no == 7) {
+                    angle_increment = 60.0f;
+                } else {
+                    angle_increment = 25.0f;
+                }
+
                 redraw();
             }
 
@@ -106,6 +120,15 @@ namespace octet {
                     current_file_no = MAX_FILE_NO - 1;
                 }
                 t.read_file(current_file_no);
+
+                if (current_file_no == 6) {
+                    angle_increment = 90.0f;
+                } else if (current_file_no == 7) {
+                    angle_increment = 60.0f;
+                } else {
+                    angle_increment = 25.0f;
+                }
+
                 redraw();
             }
 
@@ -145,7 +168,9 @@ namespace octet {
 
             scene_node *node = new scene_node();
             app_scene->add_child(node);
-            app_scene->add_mesh_instance(new mesh_instance(node, box, material_));
+            app_scene->add_mesh_instance(new mesh_instance(node, box, drawing_material));
+           
+            
 
             return end_pos;
         }
@@ -154,20 +179,36 @@ namespace octet {
             dynarray<char> axiom = t.get_axiom();
             vec3 pos = vec3(0.0f, 0.0f, 0.0f);
             float angle = 0.0f;
+            current_level = 0;
+
             for (unsigned int i = 0; i < axiom.size(); ++i) {
                 if (axiom[i] == '+') {
                     angle += angle_increment;
                 } else if (axiom[i] == '-') {
                     angle -= angle_increment;
                 } else if (axiom[i] == '[') {
+                    ++current_level;
                     node n = node(pos, angle);
                     node_stack.push_back(n);
                 } else if (axiom[i] == ']') {
                     node n = node_stack[node_stack.size() - 1];
+                    --current_level;
                     node_stack.pop_back();
                     angle = n.get_angle();
                     pos = n.get_pos();
                 } else if (axiom[i] == 'F') {
+                    drawing_material = bark_material;
+                    for (unsigned int j = i+1; j < axiom.size(); ++j) {
+                        if (axiom[j] == ']') {
+                            drawing_material = leaf_material;
+                        } else if (axiom[j] == 'F') {
+                            break;
+                        }
+                    }
+                    pos = draw_segment(pos, angle);
+                } else if (axiom[i] == 'A') {
+                    pos = draw_segment(pos, angle);
+                } else if (axiom[i] == 'B') {
                     pos = draw_segment(pos, angle);
                 }
             }

@@ -37,6 +37,13 @@ namespace octet {
     key_num_plus = 107,
     key_num_minus = 109,
 
+    key_a = 65,
+    key_d = 68,
+    key_r = 82,
+    key_s = 83,
+    key_t = 84,
+    key_w = 87,
+
     // other keys have the following codes:
     key_f1 = 0x80,
     key_f2,

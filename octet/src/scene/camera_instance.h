@@ -221,6 +221,16 @@ namespace octet { namespace scene {
       near_plane = v;
     }
 
+    /// x fov for perspective.
+    float get_xfov() {
+        return xfov;
+    }
+
+    /// y fov for perspective.
+    float get_yfov() {
+        return yfov;
+    }
+
   };
 }}
 

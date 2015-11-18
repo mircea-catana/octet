@@ -153,5 +153,15 @@ namespace octet {
             return current_iteration;
         }
 
+        int segments_in_tree() {
+            int count = 0;
+            for (unsigned int i = 0; i < axiom.size(); ++i) {
+                if (axiom[i] == 'F' || axiom[i] == 'A' || axiom[i] == 'B') {
+                    ++count;
+                }
+            }
+            return count;
+        }
+
     };
 }

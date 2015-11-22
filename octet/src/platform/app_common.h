@@ -39,10 +39,15 @@ namespace octet {
 
     key_a = 65,
     key_d = 68,
+    key_i = 73,
+    key_j = 74,
+    key_k = 75,
     key_r = 82,
     key_s = 83,
     key_t = 84,
+    key_u = 85,
     key_w = 87,
+    key_y = 89,
 
     // other keys have the following codes:
     key_f1 = 0x80,

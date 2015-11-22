@@ -40,9 +40,20 @@ namespace octet {
             }
         };
 
+        struct terrain_mesh_source : mesh_terrain::geometry_source {
+            mesh::vertex vertex(vec3_in bb_min, vec3_in uv_min, vec3_in uv_delta, vec3_in pos) {
+                vec3 p = bb_min + pos;
+                vec3 uv = uv_min + vec3((float)pos.x(), (float)pos.z(), 0) * uv_delta;
+                return mesh::vertex(p, vec3(0, 1, 0), uv);
+            }
+        };
+        terrain_mesh_source terrain_source;
+
         const float PI = 3.14159265f;
         float SEGMENT_LENGTH = 5.0f;
         float SEGMENT_WIDTH = 2.6f;
+        float saved_length = SEGMENT_LENGTH;
+        float saved_width = SEGMENT_WIDTH;
 
         ref<visual_scene> app_scene;
 
@@ -63,13 +74,16 @@ namespace octet {
         const float MIN_Z_ANGLE = 20.0f;
         const float MAX_Z_ANGLE = 45.0f;
         float z_angle_increment = 25.0f;
-        float y_angle_increment = 20.0f;
+        float y_angle_increment = 90.0f;
 
         mouse_look mouse_look_helper;
         ref<camera_instance> camera;
 
         bool rotateTree = false;
         bool is3D = false;
+        bool isRealistic = false;
+
+        random rand;
 
     public:
         lsystems(int argc, char **argv) : app(argc, argv) {
@@ -77,6 +91,10 @@ namespace octet {
 
         void app_init() {
             t.read_file(current_file_no);
+
+            for (int i = 0; i < 4; ++i) {
+                t.iterate();
+            }
 
             mouse_look_helper.init(this, 200.0f / 360.0f, false);
 
@@ -86,10 +104,13 @@ namespace octet {
             camera->get_node()->translate(vec3(0.0f, 0.0f, 1.0f));
 
             image *bark_img = new image("assets/lsystems/bark.gif");
+            image *leaves_img = new image("assets/lsystems/leaves.gif");
             bark_material = new material(bark_img);
-            leaf_material = new material(vec4(0.3f, 0.5f, 0.1f, 1.0f));
+            leaf_material = new material(leaves_img);
             red_material = new material(vec4(0.8f, 0.2f, 0.1f, 1.0f));
             drawing_material = bark_material;
+
+            rand = random();
 
             create_geometry();
         }
@@ -99,6 +120,14 @@ namespace octet {
             rotate_tree();
 
             app_scene->begin_render(w, h);
+
+            if (isRealistic) {
+                glClearColor(98.0f / 255.0f, 168.0f / 255.0f, 191.0f / 255.0f, 1);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            } else {
+                glClearColor(20.0f / 255.0f, 20.0f / 255.0f, 20.0f / 255.0f, 1);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            }
 
             mat4t &camera_to_world = camera->get_node()->access_nodeToParent();
             mouse_look_helper.update(camera_to_world);
@@ -119,22 +148,31 @@ namespace octet {
         }
 
         void redraw() {
-            SEGMENT_LENGTH = 5.0f;
-            SEGMENT_WIDTH = 2.6f;
-
             app_scene = new visual_scene();
             app_scene->create_default_camera_and_lights();
             camera = app_scene->get_camera_instance(0);
-
-            camera->set_far_plane(500.0f);
+            camera->set_far_plane(4000.0f);
             
+            if (current_file_no < 6 && isRealistic) {
+                mat4t mtw;
+                mtw.loadIdentity();
+                mtw.translate(vec3(0.0f, 0.5f, 0.0f));
+                app_scene->add_shape(
+                    mtw,
+                    new mesh_terrain(vec3(1000.0f, 0.5f, 1000.0f), ivec3(100, 1, 100), terrain_source),
+                    new material(new image("assets/grass.jpg")),
+                    false, 0
+                    );
+            }
 
             tree_max_y = 0.0f;
+            SEGMENT_LENGTH = saved_length;
+            SEGMENT_WIDTH = saved_width;
             create_geometry();
 
             float dy = (tree_max_y + SEGMENT_LENGTH) / 2.0f - camera->get_node()->get_position().y();
             float dz = (tree_max_y + SEGMENT_LENGTH) / 2.0f - camera->get_node()->get_position().z();
-            camera->get_node()->translate(vec3(0.0f, dy, dz));
+            camera->get_node()->translate(vec3(0.0f, dy, dz*2.0f + 50.0f));
         }
 
         void handle_input() {
@@ -160,6 +198,13 @@ namespace octet {
                     z_angle_increment = 25.0f;
                 }
 
+                for (int i = 0; i < 4; ++i) {
+                    t.iterate();
+                }
+
+                saved_length = 5.0f;
+                saved_width = 2.6f;
+
                 redraw();
             }
 
@@ -176,6 +221,13 @@ namespace octet {
                 } else {
                     z_angle_increment = 25.0f;
                 }
+
+                for (int i = 0; i < 4; ++i) {
+                    t.iterate();
+                }
+
+                saved_length = 5.0f;
+                saved_width = 2.6f;
 
                 redraw();
             }
@@ -211,6 +263,32 @@ namespace octet {
                 redraw();
             }
 
+            if (is_key_going_down(key_y)) {
+                isRealistic = !isRealistic;
+                redraw();
+            }
+
+            // segment length and width modifiers
+            if (is_key_going_down(key_u)) {
+                saved_width += 0.1f;
+                redraw();
+            }
+
+            if (is_key_going_down(key_i)) {
+                saved_width -= 0.1f;
+                redraw();
+            }
+
+            if (is_key_going_down(key_j)) {
+                saved_length += 0.1f;
+                redraw();
+            }
+
+            if (is_key_going_down(key_k)) {
+                saved_length -= 0.1f;
+                redraw();
+            }
+
             // movement controls
             if (is_key_down(key_w)) {
                 camera->get_node()->translate(vec3(0.0f, 0.0f, -1.0f));
@@ -235,8 +313,10 @@ namespace octet {
 
             mid_pos.x() = start_pos.x() + SEGMENT_LENGTH * cos((z_angle + 90.0f) * PI / 180.0f);
             mid_pos.y() = start_pos.y() + SEGMENT_LENGTH * sin((z_angle + 90.0f) * PI / 180.0f);
+            mid_pos.z() = start_pos.z() + SEGMENT_LENGTH * sin((y_angle + 180.0f) * PI / 180.0f);
             end_pos.x() = start_pos.x() + SEGMENT_LENGTH * 2.0f * cos((90.0f + z_angle) * PI / 180.0f);
             end_pos.y() = start_pos.y() + SEGMENT_LENGTH * 2.0f * sin((90.0f + z_angle) * PI / 180.0f);
+            end_pos.z() = start_pos.z() + SEGMENT_LENGTH * 2.0f * sin((y_angle + 180.0f) * PI / 180.0f);
 
             if (tree_max_y < end_pos.y()) {
                 tree_max_y = end_pos.y() + SEGMENT_LENGTH;
@@ -251,18 +331,50 @@ namespace octet {
             mtw2.translate(mid_pos);
             mtw2.rotate(z_angle, 0.0f, 0.0f, 1.0f);
 
-            mtw2 = mtw2*mtw1;
+            mtw2 = mtw1*mtw2;
 
             if (current_file_no < 6) {
-                mat4t mtw;
-                mtw.loadIdentity();
-                mtw.rotate(90.0f, 1.0f, 0.0f, 0.0f);
-                zcylinder cyl = zcylinder(vec3(0), SEGMENT_WIDTH, SEGMENT_LENGTH);
-                mesh_cylinder *cylinder = new mesh_cylinder(cyl, mtw*mtw2);
+                if (isRealistic) {
+                    if (drawing_material == leaf_material) {
+                        zcylinder cyl = zcylinder(vec3(0), SEGMENT_LENGTH / 2.0f, SEGMENT_WIDTH);
+                        mat4t mc1 = mat4t(mtw2);
+                        mc1.translate(vec3(-SEGMENT_LENGTH / 2.0f, -SEGMENT_LENGTH / 1.6f, 0.0f));
+                        mesh_cylinder *c1 = new mesh_cylinder(cyl, mc1);
 
-                scene_node *node = new scene_node();
-                app_scene->add_child(node);
-                app_scene->add_mesh_instance(new mesh_instance(node, cylinder, drawing_material));
+                        mat4t mc2 = mat4t(mtw2);
+                        mc2.translate(vec3(SEGMENT_LENGTH / 2.0f, -SEGMENT_LENGTH / 2.0f, 0.0f));
+                        mesh_cylinder *c2 = new mesh_cylinder(cyl, mc2);
+
+                        mat4t mc3 = mat4t(mtw2);
+                        mc3.translate(vec3(0.0f, SEGMENT_LENGTH / 2.0f, 0.0f));
+                        mesh_cylinder *c3 = new mesh_cylinder(cyl, mc3);
+
+                        scene_node *node1 = new scene_node();
+                        app_scene->add_child(node1);
+                        app_scene->add_mesh_instance(new mesh_instance(node1, c1, drawing_material));
+                        scene_node *node2 = new scene_node();
+                        app_scene->add_child(node2);
+                        app_scene->add_mesh_instance(new mesh_instance(node2, c2, drawing_material));
+                        scene_node *node3 = new scene_node();
+                        app_scene->add_child(node3);
+                        app_scene->add_mesh_instance(new mesh_instance(node3, c3, drawing_material));
+                    } else {
+                        mat4t mtw;
+                        mtw.loadIdentity();
+                        mtw.rotate(90.0f, 1.0f, 0.0f, 0.0f);
+                        zcylinder cyl = zcylinder(vec3(0), SEGMENT_WIDTH, SEGMENT_LENGTH);
+                        mesh_cylinder *cylinder = new mesh_cylinder(cyl, mtw*mtw2);
+
+                        scene_node *node = new scene_node();
+                        app_scene->add_child(node);
+                        app_scene->add_mesh_instance(new mesh_instance(node, cylinder, drawing_material));
+                    }
+                } else {
+                    mesh_box *box = new mesh_box(vec3(SEGMENT_WIDTH, SEGMENT_LENGTH, SEGMENT_WIDTH), mtw2);
+                    scene_node *node = new scene_node();
+                    app_scene->add_child(node);
+                    app_scene->add_mesh_instance(new mesh_instance(node, box, red_material));
+                }
             } else {
                 mesh_box *box = new mesh_box(vec3(SEGMENT_WIDTH, SEGMENT_LENGTH, SEGMENT_WIDTH), mtw2);
                 scene_node *node = new scene_node();

@@ -3,6 +3,8 @@
 namespace octet {
     class lsystems : public app {
 
+        // Helper class for storing data when you 
+        // encounter push/pops in the axiom
         class node {
             vec3 pos;
             float z_angle;
@@ -40,6 +42,7 @@ namespace octet {
             }
         };
 
+        // Flat mesh for the ground
         struct terrain_mesh_source : mesh_terrain::geometry_source {
             mesh::vertex vertex(vec3_in bb_min, vec3_in uv_min, vec3_in uv_delta, vec3_in pos) {
                 vec3 p = bb_min + pos;
@@ -89,6 +92,7 @@ namespace octet {
         lsystems(int argc, char **argv) : app(argc, argv) {
         }
 
+        // Initial setup
         void app_init() {
             t.read_file(current_file_no);
 
@@ -115,6 +119,7 @@ namespace octet {
             create_geometry();
         }
 
+        // Main update method, called every frame
         void draw_world(int x, int y, int w, int h) {
             handle_input();
             rotate_tree();
@@ -137,6 +142,7 @@ namespace octet {
             app_scene->render((float)w / h);
         }
 
+        // Rotates tree around y-axis
         void rotate_tree() {
             if (!rotateTree) {
                 return;
@@ -147,6 +153,7 @@ namespace octet {
             }
         }
 
+        // Called to recreate the visual scene with new parameters
         void redraw() {
             app_scene = new visual_scene();
             app_scene->create_default_camera_and_lights();
@@ -175,6 +182,147 @@ namespace octet {
             camera->get_node()->translate(vec3(0.0f, dy, dz*2.0f + 50.0f));
         }
 
+        // Step through the current axiom, setup data and call draw functions
+        void create_geometry() {
+            vec3 pos = vec3(0.0f, 0.0f, 0.0f);
+            float z_angle = 0.0f;
+            float y_angle = 0.0f;
+            current_level = 0;
+
+            dynarray<char> axiom = t.get_axiom();
+
+            int thinning_steps = 8;
+            int num_segments = t.segments_in_tree();
+            int num_segments_step = num_segments / thinning_steps;
+            int segment_count = 0;
+
+            for (unsigned int i = 0; i < axiom.size(); ++i) {
+                if (axiom[i] == '+') {
+                    z_angle += z_angle_increment;
+                    y_angle += y_angle_increment;
+                } else if (axiom[i] == '-') {
+                    z_angle -= z_angle_increment;
+                    y_angle -= y_angle_increment;
+                } else if (axiom[i] == '[') {
+                    ++current_level;
+                    node n = node(pos, z_angle, SEGMENT_WIDTH, y_angle);
+                    node_stack.push_back(n);
+                } else if (axiom[i] == ']') {
+                    node n = node_stack[node_stack.size() - 1];
+                    --current_level;
+                    node_stack.pop_back();
+                    z_angle = n.get_z_angle();
+                    y_angle = n.get_y_angle();
+                    pos = n.get_pos();
+                } else if (axiom[i] == 'F') {
+                    ++segment_count;
+                    if (segment_count >= num_segments_step) {
+                        SEGMENT_WIDTH /= 1.1f;
+                        segment_count = 0;
+                    }
+
+                    drawing_material = bark_material;
+                    for (unsigned int j = i + 1; j < axiom.size(); ++j) {
+                        if (axiom[j] == ']') {
+                            drawing_material = leaf_material;
+                        } else if (axiom[j] == 'F') {
+                            break;
+                        }
+                    }
+
+                    if (is3D) {
+                        pos = draw_segment(pos, z_angle, y_angle);
+                    } else {
+                        pos = draw_segment(pos, z_angle);
+                    }
+
+                } else if (axiom[i] == 'A') {
+                    pos = draw_segment(pos, z_angle);
+                } else if (axiom[i] == 'B') {
+                    pos = draw_segment(pos, z_angle);
+                }
+            }
+        }
+
+        // Responsible for creating a 3D segment of the tree in the visual scene
+        vec3 draw_segment(vec3 start_pos, float z_angle, float y_angle = 0.0f) {
+            vec3 mid_pos;
+            vec3 end_pos;
+
+            mid_pos.x() = start_pos.x() + SEGMENT_LENGTH * cos((z_angle + 90.0f) * PI / 180.0f);
+            mid_pos.y() = start_pos.y() + SEGMENT_LENGTH * sin((z_angle + 90.0f) * PI / 180.0f);
+            mid_pos.z() = start_pos.z() + SEGMENT_LENGTH * sin((y_angle + 180.0f) * PI / 180.0f);
+            end_pos.x() = start_pos.x() + SEGMENT_LENGTH * 2.0f * cos((90.0f + z_angle) * PI / 180.0f);
+            end_pos.y() = start_pos.y() + SEGMENT_LENGTH * 2.0f * sin((90.0f + z_angle) * PI / 180.0f);
+            end_pos.z() = start_pos.z() + SEGMENT_LENGTH * 2.0f * sin((y_angle + 180.0f) * PI / 180.0f);
+
+            if (tree_max_y < end_pos.y()) {
+                tree_max_y = end_pos.y() + SEGMENT_LENGTH;
+            }
+
+            mat4t mtw1, mtw2;
+            
+            mtw1.loadIdentity();
+            mtw1.rotate(y_angle, 0.0f, 1.0f, 0.0f);
+
+            mtw2.loadIdentity();
+            mtw2.translate(mid_pos);
+            mtw2.rotate(z_angle, 0.0f, 0.0f, 1.0f);
+            mtw2 = mtw1*mtw2;
+
+            if (current_file_no < 6) {
+                if (isRealistic) {
+                    if (drawing_material == leaf_material) {
+                        zcylinder cyl = zcylinder(vec3(0), SEGMENT_LENGTH / 2.0f, SEGMENT_WIDTH);
+                        mat4t mc1 = mat4t(mtw2);
+                        mc1.translate(vec3(-SEGMENT_LENGTH / 2.0f, -SEGMENT_LENGTH / 1.6f, 0.0f));
+                        mesh_cylinder *c1 = new mesh_cylinder(cyl, mc1);
+
+                        mat4t mc2 = mat4t(mtw2);
+                        mc2.translate(vec3(SEGMENT_LENGTH / 2.0f, -SEGMENT_LENGTH / 2.0f, 0.0f));
+                        mesh_cylinder *c2 = new mesh_cylinder(cyl, mc2);
+
+                        mat4t mc3 = mat4t(mtw2);
+                        mc3.translate(vec3(0.0f, SEGMENT_LENGTH / 2.0f, 0.0f));
+                        mesh_cylinder *c3 = new mesh_cylinder(cyl, mc3);
+
+                        scene_node *node1 = new scene_node();
+                        app_scene->add_child(node1);
+                        app_scene->add_mesh_instance(new mesh_instance(node1, c1, drawing_material));
+                        scene_node *node2 = new scene_node();
+                        app_scene->add_child(node2);
+                        app_scene->add_mesh_instance(new mesh_instance(node2, c2, drawing_material));
+                        scene_node *node3 = new scene_node();
+                        app_scene->add_child(node3);
+                        app_scene->add_mesh_instance(new mesh_instance(node3, c3, drawing_material));
+                    } else {
+                        mat4t mtw;
+                        mtw.loadIdentity();
+                        mtw.rotate(90.0f, 1.0f, 0.0f, 0.0f);
+                        zcylinder cyl = zcylinder(vec3(0), SEGMENT_WIDTH, SEGMENT_LENGTH);
+                        mesh_cylinder *cylinder = new mesh_cylinder(cyl, mtw*mtw2);
+
+                        scene_node *node = new scene_node();
+                        app_scene->add_child(node);
+                        app_scene->add_mesh_instance(new mesh_instance(node, cylinder, drawing_material));
+                    }
+                } else {
+                    mesh_box *box = new mesh_box(vec3(SEGMENT_WIDTH, SEGMENT_LENGTH, SEGMENT_WIDTH), mtw2);
+                    scene_node *node = new scene_node();
+                    app_scene->add_child(node);
+                    app_scene->add_mesh_instance(new mesh_instance(node, box, red_material));
+                }
+            } else {
+                mesh_box *box = new mesh_box(vec3(SEGMENT_WIDTH, SEGMENT_LENGTH, SEGMENT_WIDTH), mtw2);
+                scene_node *node = new scene_node();
+                app_scene->add_child(node);
+                app_scene->add_mesh_instance(new mesh_instance(node, box, red_material));
+            }
+
+            return end_pos;
+        }
+
+        // Keyboard input handling
         void handle_input() {
             if (is_key_going_down(key_up)) {
                 t.iterate();
@@ -254,15 +402,18 @@ namespace octet {
                 }
             }
 
+            // Enable/Disable tree rotation
             if (is_key_going_down(key_r)) {
                 rotateTree = !rotateTree;
             }
 
+            // Enable/Disable 3D View
             if (is_key_going_down(key_t)) {
                 is3D = !is3D;
                 redraw();
             }
 
+            // Enable/Disable realistic rendering
             if (is_key_going_down(key_y)) {
                 isRealistic = !isRealistic;
                 redraw();
@@ -304,145 +455,6 @@ namespace octet {
 
             if (is_key_down(key_d)) {
                 camera->get_node()->translate(vec3(1.0f, 0.0f, 0.0f));
-            }
-        }
-
-        vec3 draw_segment(vec3 start_pos, float z_angle, float y_angle = 0.0f) {
-            vec3 mid_pos;
-            vec3 end_pos;
-
-            mid_pos.x() = start_pos.x() + SEGMENT_LENGTH * cos((z_angle + 90.0f) * PI / 180.0f);
-            mid_pos.y() = start_pos.y() + SEGMENT_LENGTH * sin((z_angle + 90.0f) * PI / 180.0f);
-            mid_pos.z() = start_pos.z() + SEGMENT_LENGTH * sin((y_angle + 180.0f) * PI / 180.0f);
-            end_pos.x() = start_pos.x() + SEGMENT_LENGTH * 2.0f * cos((90.0f + z_angle) * PI / 180.0f);
-            end_pos.y() = start_pos.y() + SEGMENT_LENGTH * 2.0f * sin((90.0f + z_angle) * PI / 180.0f);
-            end_pos.z() = start_pos.z() + SEGMENT_LENGTH * 2.0f * sin((y_angle + 180.0f) * PI / 180.0f);
-
-            if (tree_max_y < end_pos.y()) {
-                tree_max_y = end_pos.y() + SEGMENT_LENGTH;
-            }
-
-            mat4t mtw1, mtw2;
-            
-            mtw1.loadIdentity();
-            mtw1.rotate(y_angle, 0.0f, 1.0f, 0.0f);
-
-            mtw2.loadIdentity();
-            mtw2.translate(mid_pos);
-            mtw2.rotate(z_angle, 0.0f, 0.0f, 1.0f);
-
-            mtw2 = mtw1*mtw2;
-
-            if (current_file_no < 6) {
-                if (isRealistic) {
-                    if (drawing_material == leaf_material) {
-                        zcylinder cyl = zcylinder(vec3(0), SEGMENT_LENGTH / 2.0f, SEGMENT_WIDTH);
-                        mat4t mc1 = mat4t(mtw2);
-                        mc1.translate(vec3(-SEGMENT_LENGTH / 2.0f, -SEGMENT_LENGTH / 1.6f, 0.0f));
-                        mesh_cylinder *c1 = new mesh_cylinder(cyl, mc1);
-
-                        mat4t mc2 = mat4t(mtw2);
-                        mc2.translate(vec3(SEGMENT_LENGTH / 2.0f, -SEGMENT_LENGTH / 2.0f, 0.0f));
-                        mesh_cylinder *c2 = new mesh_cylinder(cyl, mc2);
-
-                        mat4t mc3 = mat4t(mtw2);
-                        mc3.translate(vec3(0.0f, SEGMENT_LENGTH / 2.0f, 0.0f));
-                        mesh_cylinder *c3 = new mesh_cylinder(cyl, mc3);
-
-                        scene_node *node1 = new scene_node();
-                        app_scene->add_child(node1);
-                        app_scene->add_mesh_instance(new mesh_instance(node1, c1, drawing_material));
-                        scene_node *node2 = new scene_node();
-                        app_scene->add_child(node2);
-                        app_scene->add_mesh_instance(new mesh_instance(node2, c2, drawing_material));
-                        scene_node *node3 = new scene_node();
-                        app_scene->add_child(node3);
-                        app_scene->add_mesh_instance(new mesh_instance(node3, c3, drawing_material));
-                    } else {
-                        mat4t mtw;
-                        mtw.loadIdentity();
-                        mtw.rotate(90.0f, 1.0f, 0.0f, 0.0f);
-                        zcylinder cyl = zcylinder(vec3(0), SEGMENT_WIDTH, SEGMENT_LENGTH);
-                        mesh_cylinder *cylinder = new mesh_cylinder(cyl, mtw*mtw2);
-
-                        scene_node *node = new scene_node();
-                        app_scene->add_child(node);
-                        app_scene->add_mesh_instance(new mesh_instance(node, cylinder, drawing_material));
-                    }
-                } else {
-                    mesh_box *box = new mesh_box(vec3(SEGMENT_WIDTH, SEGMENT_LENGTH, SEGMENT_WIDTH), mtw2);
-                    scene_node *node = new scene_node();
-                    app_scene->add_child(node);
-                    app_scene->add_mesh_instance(new mesh_instance(node, box, red_material));
-                }
-            } else {
-                mesh_box *box = new mesh_box(vec3(SEGMENT_WIDTH, SEGMENT_LENGTH, SEGMENT_WIDTH), mtw2);
-                scene_node *node = new scene_node();
-                app_scene->add_child(node);
-                app_scene->add_mesh_instance(new mesh_instance(node, box, red_material));
-            }
-
-            return end_pos;
-        }
-
-        void create_geometry() {
-            vec3 pos = vec3(0.0f, 0.0f, 0.0f);
-            float z_angle = 0.0f;
-            float y_angle = 0.0f;
-            current_level = 0;
-
-            dynarray<char> axiom = t.get_axiom();
-
-            int thinning_steps = 8;
-            int num_segments = t.segments_in_tree();
-            int num_segments_step = num_segments / thinning_steps;
-            int segment_count = 0;
-
-            for (unsigned int i = 0; i < axiom.size(); ++i) {
-                if (axiom[i] == '+') {
-                    z_angle += z_angle_increment;
-                    y_angle += y_angle_increment;
-                } else if (axiom[i] == '-') {
-                    z_angle -= z_angle_increment;
-                    y_angle -= y_angle_increment;
-                } else if (axiom[i] == '[') {
-                    ++current_level;
-                    node n = node(pos, z_angle, SEGMENT_WIDTH, y_angle);
-                    node_stack.push_back(n);
-                } else if (axiom[i] == ']') {
-                    node n = node_stack[node_stack.size() - 1];
-                    --current_level;
-                    node_stack.pop_back();
-                    z_angle = n.get_z_angle();
-                    y_angle = n.get_y_angle();
-                    pos = n.get_pos();
-                } else if (axiom[i] == 'F') {
-                    ++segment_count;
-                    if (segment_count >= num_segments_step) {
-                        SEGMENT_WIDTH /= 1.1f;
-                        segment_count = 0;
-                    }
-
-                    drawing_material = bark_material;
-                    for (unsigned int j = i+1; j < axiom.size(); ++j) {
-                        if (axiom[j] == ']') {
-                            drawing_material = leaf_material;
-                        } else if (axiom[j] == 'F') {
-                            break;
-                        }
-                    }
-
-                    if (is3D) {
-                        pos = draw_segment(pos, z_angle, y_angle);
-                    } else {
-                        pos = draw_segment(pos, z_angle);
-                    }
-                    
-                } else if (axiom[i] == 'A') {
-                    pos = draw_segment(pos, z_angle);
-                } else if (axiom[i] == 'B') {
-                    pos = draw_segment(pos, z_angle);
-                }
             }
         }
 
